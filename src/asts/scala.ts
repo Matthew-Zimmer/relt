@@ -53,6 +53,21 @@ export interface SourceDatasetHandler {
   typeName: string;
   datasetIndex: number;
   datasetCount: number;
+  connectionInfo: SparkConnectionInfo;
+}
+
+export type SparkConnectionInfo =
+  | SparkDBConnectionInfo
+
+export interface SparkDBConnectionInfo {
+  kind: "SparkDBConnectionInfo";
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  table: string;
+  // TODO
+  // columns: string[]; 
 }
 
 export interface DerivedDatasetHandler {

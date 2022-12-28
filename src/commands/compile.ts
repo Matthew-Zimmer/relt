@@ -11,6 +11,7 @@ import { namedTypeDependencyGraph } from "../graph";
 import { TopLevelExpression } from "../asts/topLevel";
 import { gatherNamedTypeExpressions } from "../passes/extractNamedTypeExpressions";
 import { typeCheckAllExpressions } from "../passes/typeCheck/expression";
+import { evaluateAllExpressions } from "../passes/evaluate";
 
 export async function compile(fileName: string) {
   let fileContent = (await readFile(fileName)).toString();
@@ -23,6 +24,7 @@ export async function compile(fileName: string) {
   const expressions = topLevelExpressions.filter(x => x.kind !== 'TypeIntroExpression') as Expression[];
 
   const [typedExpressions, ectx] = typeCheckAllExpressions(expressions);
+  const [values, scope] = evaluateAllExpressions(typedExpressions);
 
   const namedTypeExpressions = gatherNamedTypeExpressions(topLevelExpressions);
 
@@ -32,7 +34,7 @@ export async function compile(fileName: string) {
 
   const [typedNamedTypeExpressions, tctx] = typeCheckAllTypeExpressions(linearNamedTypeExpressions);
 
-  const project = deriveSparkProject(typedNamedTypeExpressions, ectx, dependencyGraph);
+  const project = deriveSparkProject(typedNamedTypeExpressions, ectx, scope, dependencyGraph);
 
   const lines = generateSparkProject(project);
 

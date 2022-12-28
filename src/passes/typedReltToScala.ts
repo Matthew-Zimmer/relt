@@ -1,8 +1,9 @@
-import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject } from "../asts/scala";
-import { identifierType, Type } from "../asts/type";
+import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo } from "../asts/scala";
+import { identifierType, Type, unitType } from "../asts/type";
 import { TypedTypeIntroExpression, TypedTypeExpression } from "../asts/typeExpression/typed";
 import { DependencyGraph } from "../graph";
 import { print, throws, uncap } from "../utils";
+import { evaluate, Scope } from "./evaluate";
 import { hasOverload, isValidExpression } from "./typeCheck/expression";
 import { Context } from "./typeCheck/utils";
 
@@ -74,15 +75,6 @@ export function isSourceType(t: TypedTypeIntroExpression, ectx: Context): boolea
     throws(`type ${t.name} is not a compound type but it is missing its "source" function`);
 
   return true;
-}
-
-export function deriveSourceDatasetHandler(t: TypedTypeIntroExpression, idx: number, count: number): SourceDatasetHandler {
-  return {
-    kind: "SourceDatasetHandler",
-    typeName: t.name,
-    datasetIndex: idx,
-    datasetCount: count,
-  };
 }
 
 export function namedSparkRules(t: TypedTypeExpression, varCount: number): [string, SparkRule[], number] {
@@ -180,6 +172,46 @@ export function deriveSparkRules(t: TypedTypeExpression, varCount: number): [Spa
   }
 }
 
+export function deriveConnectionInfo(t: TypedTypeIntroExpression, scope: Scope): SparkConnectionInfo {
+  const [value] = evaluate({
+    kind: "TypedApplicationExpression",
+    func: {
+      kind: "TypedIdentifierExpression",
+      name: 'source',
+      type: { kind: "FunctionType", from: [identifierType(t.name)], to: unitType() }
+    },
+    args: [{ kind: "TypedIdentifierExpression", name: "__0", type: identifierType(t.name) }],
+    type: unitType(),
+  }, { ...scope, __0: undefined });
+
+  if (!(typeof value === 'object' && "kind" in value && typeof value.kind === 'string' && ["db"].includes(value.kind)))
+    throws(`function "source" for "${t.name}" did not return valid data`);
+  const kind = value.kind as "db";
+  // TODO use a library like zod to actually check these values
+  switch (kind) {
+    case "db":
+      return {
+        kind: "SparkDBConnectionInfo",
+        host: value.host as string,
+        port: value.port as number,
+        user: value.user as string,
+        password: value.password as string,
+        table: value.table as string,
+        //columns: value.columns as string[],
+      };
+  }
+}
+
+export function deriveSourceDatasetHandler(t: TypedTypeIntroExpression, scope: Scope, idx: number, count: number): SourceDatasetHandler {
+  return {
+    kind: "SourceDatasetHandler",
+    typeName: t.name,
+    datasetIndex: idx,
+    datasetCount: count,
+    connectionInfo: deriveConnectionInfo(t, scope),
+  };
+}
+
 export function deriveDerivedDatasetHandler(t: TypedTypeIntroExpression, idx: number, count: number, parents: { name: string, index: number }[]): DerivedDatasetHandler {
   const [name, rules] = namedSparkRules(t.value, 0);
   return {
@@ -195,27 +227,27 @@ export function deriveDerivedDatasetHandler(t: TypedTypeIntroExpression, idx: nu
   };
 }
 
-export function deriveDatasetHandler(t: TypedTypeIntroExpression, ectx: Context, indices: Map<string, number>, dg: DependencyGraph): DatasetHandler {
+export function deriveDatasetHandler(t: TypedTypeIntroExpression, ectx: Context, scope: Scope, indices: Map<string, number>, dg: DependencyGraph): DatasetHandler {
   const idx = indices.get(t.name)!;
   const count = indices.size;
   const parents = dg.parentsOf(t.name).map(x => ({ name: x, index: indices.get(x)! }));
-  return isSourceType(t, ectx) ? deriveSourceDatasetHandler(t, idx, count) : deriveDerivedDatasetHandler(t, idx, count, parents);
+  return isSourceType(t, ectx) ? deriveSourceDatasetHandler(t, scope, idx, count) : deriveDerivedDatasetHandler(t, idx, count, parents);
 }
 
-export function deriveSparkType(t: TypedTypeIntroExpression, ectx: Context, indices: Map<string, number>, dg: DependencyGraph): SparkType {
+export function deriveSparkType(t: TypedTypeIntroExpression, ectx: Context, scope: Scope, indices: Map<string, number>, dg: DependencyGraph): SparkType {
   return {
     kind: "SparkType",
     caseClass: deriveScalaCaseClass(t),
-    datasetHandler: deriveDatasetHandler(t, ectx, indices, dg),
+    datasetHandler: deriveDatasetHandler(t, ectx, scope, indices, dg),
   };
 }
 
-export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpression[], ectx: Context, dg: DependencyGraph): SparkProject {
+export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpression[], ectx: Context, scope: Scope, dg: DependencyGraph): SparkProject {
   const indexMapping = new Map(namedTypeExpressions.map((x, i) => [x.name, i]));
 
   return {
     kind: "SparkProject",
     name: "libname",
-    types: namedTypeExpressions.map(x => deriveSparkType(x, ectx, indexMapping, dg)),
+    types: namedTypeExpressions.map(x => deriveSparkType(x, ectx, scope, indexMapping, dg)),
   };
 }

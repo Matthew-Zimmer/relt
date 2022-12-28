@@ -141,11 +141,11 @@ export const parser = generate(`
     { return { kind: "BooleanExpression", value: value === "true" } }
 
   integer_expression
-    = value: ("0" / parts: [1-9][0-9]* { return parts.length === 1 ? parts[0] : parts[0] + parts[1].join("") })
+    = value: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") })
     { return { kind: "IntegerExpression", value: Number(value) } }
 
   float_expression
-    = integer_part: ("0" / parts: [1-9][0-9]* { return parts[0] + parts[1].join("") }) "." decimal_part: [0-9]+
+    = integer_part: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") }) "." decimal_part: [0-9]+
     { return { kind: "IntegerExpression", value: Number(integer_part + "." + decimal_part) } }
   
   string_expression

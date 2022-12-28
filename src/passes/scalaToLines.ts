@@ -1,5 +1,5 @@
 import { nl, line, block, Line } from '../asts/line';
-import { DatasetHandler, DerivedDatasetHandler, ScalaCaseClass, ScalaType, SourceDatasetHandler, SparkMapTransformation, SparkProject, SparkRule, SparkType } from '../asts/scala';
+import { DatasetHandler, DerivedDatasetHandler, ScalaCaseClass, ScalaType, SourceDatasetHandler, SparkConnectionInfo, SparkMapTransformation, SparkProject, SparkRule, SparkType } from '../asts/scala';
 import { uncap } from '../utils';
 
 export function generateScalaType(t: ScalaType): string {
@@ -109,12 +109,20 @@ export function generateSourceDatasetHandler(h: SourceDatasetHandler, packageNam
       block(
         line(`import spark.implicits._`),
         nl,
-        line(`Utils.readTable(spark, DBConnectionInfo[${h.typeName}]("url", 5432, "root", "PASSWORD", "table", Seq()))`),
+        ...generateSparkConnectionInfo(h.connectionInfo, h.typeName),
       ),
       line(`}`)
     ),
     line(`}`),
   ];
+}
+
+export function generateSparkConnectionInfo(i: SparkConnectionInfo, typeName: string): Line[] {
+  switch (i.kind) {
+    case "SparkDBConnectionInfo":
+      // TODO Seq(${i.columns.map(x => `"${x}"`).join(', ')})
+      return [line(`Utils.readTable(spark, DBConnectionInfo[${typeName}]("${i.host}", ${i.port}, "${i.user}", "${i.password}", "${i.table}", Seq()))`)];
+  }
 }
 
 export function generateDatasetHandler(h: DatasetHandler, packageName: string): Line[] {
