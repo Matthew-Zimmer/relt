@@ -11,7 +11,7 @@ export type TypedExpression =
   | TypedObjectExpression
   | TypedFunctionExpression
   | TypedBlockExpression
-
+  | TypedApplicationExpression
 
 export interface TypedLetExpression {
   kind: "TypedLetExpression";
@@ -67,5 +67,12 @@ export interface TypedFunctionExpression {
   name: string;
   parameters: Parameter[];
   value: TypedBlockExpression;
+  type: Type;
+}
+
+export interface TypedApplicationExpression {
+  kind: "TypedApplicationExpression";
+  func: TypedExpression;
+  args: TypedExpression[];
   type: Type;
 }

@@ -1,0 +1,127 @@
+import { TypedBlockExpression, TypedExpression } from '../../asts/expression/typed';
+import { Expression } from '../../asts/expression/untyped';
+import { booleanType, floatType, FunctionType, functionType, integerType, objectType, stringType, Type, unionType, unitType } from '../../asts/type';
+import { Context, typeEquals } from './utils';
+import { throws } from '../../utils';
+
+function addFunctionToContext(ctx: Context, name: string, type: Type): Context {
+  if (!(name in ctx))
+    return { ...ctx, [name]: type };
+  const existingType = ctx[name];
+  switch (existingType.kind) {
+    case 'FunctionType':
+      return { ...ctx, [name]: unionType(existingType, type) };
+    case 'UnionType':
+      if (existingType.types.every(x => x.kind === 'FunctionType'))
+        return { ...ctx, [name]: unionType(...existingType.types, type) };
+    default:
+      throws(`${name} is already defined and it not a function so overloading is not allowed`);
+  }
+}
+
+function applicationResultType(func: FunctionType, args: Type[]): Type {
+  if (args.length !== func.from.length)
+    throws(`Cannot all function expecting ${func.from.length} args with ${args.length} args`);
+  for (const i of func.from.keys())
+    if (!typeEquals(func.from[i], args[i]))
+      throws(`func call ${i}th args does not match expected ${func.from[i].kind} got ${args[i].kind}`);
+  return func.to;
+}
+
+function overloadedApplicationResultType(func: Type, args: Type[]): Type {
+  switch (func.kind) {
+    case 'FunctionType':
+      return applicationResultType(func, args);
+    case 'UnionType': {
+      const types = func.types.filter(x => x.kind === 'FunctionType') as FunctionType[];
+      for (const type of types) {
+        try {
+          return applicationResultType(type, args);
+        }
+        catch (e) {
+        }
+      }
+      throws(`function overload all failed`);
+    }
+    default:
+      throws(`Cannot call non function type`);
+  }
+}
+
+export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpression, Context] {
+  switch (e.kind) {
+    case "IntegerExpression": {
+      return [{ kind: "TypedIntegerExpression", value: e.value, type: integerType() }, ctx];
+    }
+    case "FloatExpression": {
+      return [{ kind: "TypedFloatExpression", value: e.value, type: floatType() }, ctx];
+    }
+    case "BooleanExpression": {
+      return [{ kind: "TypedBooleanExpression", value: e.value, type: booleanType() }, ctx];
+    }
+    case "StringExpression": {
+      return [{ kind: "TypedStringExpression", value: e.value, type: stringType() }, ctx];
+    }
+    case "IdentifierExpression": {
+      if (!(e.name in ctx))
+        throws(`${e.name} is not defined`);
+      return [{ kind: "TypedIdentifierExpression", name: e.name, type: ctx[e.name] }, ctx];
+    }
+    case "LetExpression": {
+      if (e.name in ctx)
+        throws(`${e.name} is already defined`);
+      const [value] = typeCheckExpression(e.value, ctx);
+      return [{ kind: "TypedLetExpression", name: e.name, value, type: value.type }, { ...ctx, [e.name]: value.type }]
+    }
+    case "ObjectExpression": {
+      const properties = e.properties.map(x => ({ name: x.name, value: typeCheckExpression(x.value, ctx)[0] }));
+      return [{ kind: "TypedObjectExpression", properties, type: objectType(...properties.map(x => ({ name: x.name, type: x.value.type }))) }, ctx];
+    }
+    case "FunctionExpression": {
+      const [value] = typeCheckExpression(e.value, { ...ctx, ...Object.fromEntries(e.parameters.map(x => [x.name, x.type])) });
+      const type = functionType(e.parameters.map(x => x.type), value.type);
+      return [{ kind: 'TypedFunctionExpression', name: e.name, parameters: e.parameters, value: value as TypedBlockExpression, type }, addFunctionToContext(ctx, e.name, type)];
+    }
+    case "BlockExpression": {
+      const [values] = e.values.reduce<[TypedExpression[], Context]>(([a, c], x) => {
+        const [u, s] = typeCheckExpression(x, c);
+        return [[...a, u], s];
+      }, [[], ctx]);
+      const type = values.length === 0 ? unitType() : values[values.length - 1].type;
+      return [{ kind: "TypedBlockExpression", values, type }, ctx];
+    }
+    case "ApplicationExpression": {
+      const [func] = typeCheckExpression(e.func, ctx);
+      const args = e.args.map(x => typeCheckExpression(x, ctx)[0]);
+
+      const type = overloadedApplicationResultType(func.type, args.map(x => x.type));
+
+      return [{ kind: "TypedApplicationExpression", func, args, type }, ctx];
+    }
+  }
+}
+
+export function typeCheckAllExpressions(expressions: Expression[]): [TypedExpression[], Context] {
+  return expressions.reduce<[TypedExpression[], Context]>(([a, c], e) => {
+    const [e1, c1] = typeCheckExpression(e, c);
+    return [[...a, e1], c1];
+  }, [[], {}]);
+}
+
+export function isValidExpression(e: Expression, ctx: Context): boolean {
+  try {
+    typeCheckExpression(e, ctx);
+    return true;
+  }
+  catch (e) {
+    return false;
+  }
+}
+
+export function hasOverload(name: string, args: Type[], ctx: Context): boolean {
+  return isValidExpression({
+    kind: "ApplicationExpression",
+    func: { kind: "IdentifierExpression", name },
+    args: args.map((_, i) => ({ kind: "IdentifierExpression", name: `__${i}` }))
+  }, { ...ctx, ...Object.fromEntries(args.map((t, i) => [`__${i}`, t])) });
+}

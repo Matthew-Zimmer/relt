@@ -8,6 +8,7 @@ export type Type =
   | IdentifierType
   | TypeType
   | UnitType
+  | UnionType
 
 export interface ObjectType {
   kind: "ObjectType";
@@ -49,6 +50,11 @@ export interface UnitType {
   kind: "UnitType";
 }
 
+export interface UnionType {
+  kind: "UnionType";
+  types: Type[];
+}
+
 export const objectType = (...properties: { name: string, type: Type }[]): ObjectType => ({ kind: "ObjectType", properties });
 export const integerType = (): IntegerType => ({ kind: "IntegerType" });
 export const floatType = (): FloatType => ({ kind: "FloatType" });
@@ -58,3 +64,4 @@ export const functionType = (from: Type[], to: Type): FunctionType => ({ kind: "
 export const identifierType = (name: string): IdentifierType => ({ kind: "IdentifierType", name });
 export const typeType = (): TypeType => ({ kind: "TypeType" });
 export const unitType = (): UnitType => ({ kind: "UnitType" });
+export const unionType = (...types: Type[]): UnionType => ({ kind: "UnionType", types });

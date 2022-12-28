@@ -10,7 +10,7 @@ export type Expression =
   | ObjectExpression
   | FunctionExpression
   | BlockExpression
-
+  | ApplicationExpression
 
 export interface LetExpression {
   kind: "LetExpression";
@@ -58,4 +58,10 @@ export interface FunctionExpression {
   name: string;
   parameters: Parameter[];
   value: BlockExpression;
+}
+
+export interface ApplicationExpression {
+  kind: "ApplicationExpression";
+  func: Expression;
+  args: Expression[];
 }

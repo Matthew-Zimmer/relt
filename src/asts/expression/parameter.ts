@@ -1,16 +1,6 @@
-import { TypeExpression } from "../typeExpression/untyped";
+import { Type } from "../type";
 
-export type Parameter =
-  | UnboundedParameter
-  | BoundedTypeParameter
-
-export interface UnboundedParameter {
-  kind: "UnboundedParameter";
+export interface Parameter {
   name: string;
-  type: TypeExpression;
-}
-
-export interface BoundedTypeParameter {
-  kind: "BoundedTypeParameter";
-  type: TypeExpression;
+  type: Type;
 }

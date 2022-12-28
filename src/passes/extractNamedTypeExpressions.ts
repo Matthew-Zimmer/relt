@@ -8,11 +8,6 @@ export function gatherNamedTypeExpressions(ast: TopLevelExpression[]): TypeIntro
 
   for (const e of ast) {
     switch (e.kind) {
-      case 'FunctionExpression':
-        e.parameters.forEach(p => {
-          typeExpressions.push(p.type);
-        });
-        break;
       case 'TypeIntroExpression':
         typeExpressions.push(e);
         break;

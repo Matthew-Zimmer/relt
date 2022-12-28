@@ -22,13 +22,13 @@ type Sale = {
   amountDollars: float,
 }
 
-type PersonSale = Person join Sale on x drop personId
+type PersonSale = Person join Sale on id == personId drop personId
 
-func source(Person) { connection } 
+func source(t: Person) { connection } 
 # + { table: "person" }
-func source(Sale) { connection } 
+func source(t: Sale) { connection } 
 # + { table: "sale" }
 
-# func destination(PersonSale) { connection } 
+# func destination(t: PersonSale) { connection } 
 # + { table: "person_sale" }
 

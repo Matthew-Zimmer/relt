@@ -1,9 +1,8 @@
-import { booleanType, floatType, IdentifierType, identifierType, integerType, ObjectType, stringType, Type } from "../asts/type";
-import { TypedObjectTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../asts/typeExpression/typed";
-import { LinearTypeExpression, LinearTypeIntroExpression } from "../asts/typeExpression/linear";
-import { throws, print } from "../utils";
-
-type Context = Record<string, Type>;
+import { booleanType, floatType, IdentifierType, identifierType, integerType, ObjectType, stringType, Type } from "../../asts/type";
+import { TypedObjectTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../../asts/typeExpression/typed";
+import { LinearTypeExpression, LinearTypeIntroExpression } from "../../asts/typeExpression/linear";
+import { throws, print } from "../../utils";
+import { Context, typeEquals } from "./utils";
 
 function resolve(name: string, ctx: Context): Exclude<Type, IdentifierType> {
   if (!(name in ctx))
@@ -29,130 +28,6 @@ function mergeObjectTypes(...types: ObjectType[]): ObjectType {
   };
 }
 
-function typeEquals(l: Type, r: Type): boolean {
-  switch (l.kind) {
-    case "ObjectType":
-      switch (r.kind) {
-        case "ObjectType": {
-          const lObj = Object.fromEntries(l.properties.map(x => [x.name, x.type]));
-          const lKeys = Object.keys(lObj);
-          const rObj = Object.fromEntries(r.properties.map(x => [x.name, x.type]));
-          const rKeys = Object.keys(rObj);
-          return lKeys.length === rKeys.length && lKeys.every(k => rObj) && lKeys.every(k => typeEquals(lObj[k], rObj[k]));
-        }
-        case "IntegerType":
-        case "FloatType":
-        case "BooleanType":
-        case "StringType":
-        case "FunctionType":
-        case "IdentifierType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "IntegerType":
-      switch (r.kind) {
-        case "IntegerType":
-          return true;
-        case "ObjectType":
-        case "FloatType":
-        case "BooleanType":
-        case "StringType":
-        case "FunctionType":
-        case "IdentifierType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "FloatType":
-      switch (r.kind) {
-        case "FloatType":
-          return true;
-        case "ObjectType":
-        case "IntegerType":
-        case "BooleanType":
-        case "StringType":
-        case "FunctionType":
-        case "IdentifierType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "BooleanType":
-      switch (r.kind) {
-        case "BooleanType":
-          return true;
-        case "ObjectType":
-        case "IntegerType":
-        case "FloatType":
-        case "StringType":
-        case "FunctionType":
-        case "IdentifierType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "StringType":
-      switch (r.kind) {
-        case "StringType":
-          return true;
-        case "ObjectType":
-        case "IntegerType":
-        case "FloatType":
-        case "BooleanType":
-        case "FunctionType":
-        case "IdentifierType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "FunctionType":
-      switch (r.kind) {
-        case "FunctionType":
-          return typeEquals(l.to, r.to) && l.from.length === r.from.length && l.from.every((_, i) => typeEquals(l.from[i], r.from[i]));
-        case "ObjectType":
-        case "IntegerType":
-        case "FloatType":
-        case "BooleanType":
-        case "StringType":
-        case "IdentifierType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "IdentifierType":
-      switch (r.kind) {
-        case "IdentifierType":
-          return l.name === r.name;
-        case "ObjectType":
-        case "IntegerType":
-        case "FloatType":
-        case "BooleanType":
-        case "StringType":
-        case "FunctionType":
-        case "TypeType":
-        case "UnitType":
-          return false;
-      }
-    case "TypeType":
-      return false;
-    case "UnitType":
-      switch (r.kind) {
-        case "UnitType":
-          return true;
-        case "ObjectType":
-        case "IntegerType":
-        case "FloatType":
-        case "BooleanType":
-        case "StringType":
-        case "FunctionType":
-        case "IdentifierType":
-        case "TypeType":
-          return false;
-      }
-  }
-}
-
 function makeNewNamedType(ty: ObjectType, ctx: Context): [IdentifierType, Context] {
   const name = `T_IntermediateType_${Object.keys(ctx).length}`;
   return [identifierType(name), { ...ctx, [name]: ty }];
@@ -176,6 +51,10 @@ function removeProperties(ty: ObjectType, propertyNames: string[]): ObjectType {
     kind: "ObjectType",
     properties: [...props.entries()].map(x => ({ name: x[0], type: x[1] })),
   };
+}
+
+function hasProperty(ty: ObjectType, name: string): boolean {
+  return ty.properties.some(x => x.name === name);
 }
 
 export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): [TypedTypeExpression, Context] {
@@ -238,10 +117,14 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
       const [left, ctx1] = typeCheckTypeExpression(e.left, ctx);
       if (left.deepTypeValue.kind !== 'ObjectType')
         throws(`Left of join did not resolve to object type`);
+      if (!hasProperty(left.deepTypeValue, e.leftColumn))
+        throws(`Column ${e.leftColumn} is not defined on left type of join`);
 
       const [right, ctx2] = typeCheckTypeExpression(e.right, ctx1);
       if (right.deepTypeValue.kind !== 'ObjectType')
         throws(`Right of join did not resolve to object type`);
+      if (!hasProperty(right.deepTypeValue, e.rightColumn))
+        throws(`Column ${e.rightColumn} is not defined on right type of join`);
 
       const deepTypeValue = mergeObjectTypes(left.deepTypeValue, right.deepTypeValue);
       const [shallowTypeValue, ctx3] = lookupShallowType(deepTypeValue, ctx2);
@@ -283,11 +166,10 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
   }
 }
 
-export function typeCheckAll(linearTypeExpressions: LinearTypeIntroExpression[]): TypedTypeIntroExpression[] {
-  const [typedNamedTypeExpressions] = linearTypeExpressions.reduce<[TypedTypeIntroExpression[], Context]>(([a, c], e) => {
+export function typeCheckAllTypeExpressions(linearTypeExpressions: LinearTypeIntroExpression[]): [TypedTypeIntroExpression[], Context] {
+  return linearTypeExpressions.reduce<[TypedTypeIntroExpression[], Context]>(([a, c], e) => {
     const [e1, c1] = typeCheckTypeExpression(e, c) as [TypedTypeIntroExpression, Context];
     return [[...a, e1], c1];
   }, [[], {}]);
-
-  return typedNamedTypeExpressions;
 }
+

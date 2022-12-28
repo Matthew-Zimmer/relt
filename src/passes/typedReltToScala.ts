@@ -1,8 +1,10 @@
 import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject } from "../asts/scala";
-import { Type } from "../asts/type";
+import { identifierType, Type } from "../asts/type";
 import { TypedTypeIntroExpression, TypedTypeExpression } from "../asts/typeExpression/typed";
 import { DependencyGraph } from "../graph";
 import { print, throws, uncap } from "../utils";
+import { hasOverload, isValidExpression } from "./typeCheck/expression";
+import { Context } from "./typeCheck/utils";
 
 export function convertToScalaType(t: Type): ScalaType {
   switch (t.kind) {
@@ -24,7 +26,8 @@ export function convertToScalaType(t: Type): ScalaType {
       throws(`Cannot convert type type to scala`);
     case 'UnitType':
       throws(`Cannot convert unit type to scala (this could be done but is not supported as I don't think it is useful)`);
-
+    case 'UnionType':
+      throws(`Cannot convert union type to scala`);
   }
 }
 
@@ -64,10 +67,11 @@ function hasCompoundTypes(t: TypedTypeExpression): boolean {
   }
 }
 
-export function isSourceType(t: TypedTypeIntroExpression): boolean {
+export function isSourceType(t: TypedTypeIntroExpression, ectx: Context): boolean {
   if (hasCompoundTypes(t)) return false;
 
-  // do type check on source function
+  if (!hasOverload('source', [identifierType(t.name)], ectx))
+    throws(`type ${t.name} is not a compound type but it is missing its "source" function`);
 
   return true;
 }
@@ -191,27 +195,27 @@ export function deriveDerivedDatasetHandler(t: TypedTypeIntroExpression, idx: nu
   };
 }
 
-export function deriveDatasetHandler(t: TypedTypeIntroExpression, indices: Map<string, number>, dg: DependencyGraph): DatasetHandler {
+export function deriveDatasetHandler(t: TypedTypeIntroExpression, ectx: Context, indices: Map<string, number>, dg: DependencyGraph): DatasetHandler {
   const idx = indices.get(t.name)!;
   const count = indices.size;
   const parents = dg.parentsOf(t.name).map(x => ({ name: x, index: indices.get(x)! }));
-  return isSourceType(t) ? deriveSourceDatasetHandler(t, idx, count) : deriveDerivedDatasetHandler(t, idx, count, parents);
+  return isSourceType(t, ectx) ? deriveSourceDatasetHandler(t, idx, count) : deriveDerivedDatasetHandler(t, idx, count, parents);
 }
 
-export function deriveSparkType(t: TypedTypeIntroExpression, indices: Map<string, number>, dg: DependencyGraph): SparkType {
+export function deriveSparkType(t: TypedTypeIntroExpression, ectx: Context, indices: Map<string, number>, dg: DependencyGraph): SparkType {
   return {
     kind: "SparkType",
     caseClass: deriveScalaCaseClass(t),
-    datasetHandler: deriveDatasetHandler(t, indices, dg),
+    datasetHandler: deriveDatasetHandler(t, ectx, indices, dg),
   };
 }
 
-export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpression[], dg: DependencyGraph): SparkProject {
+export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpression[], ectx: Context, dg: DependencyGraph): SparkProject {
   const indexMapping = new Map(namedTypeExpressions.map((x, i) => [x.name, i]));
 
   return {
     kind: "SparkProject",
     name: "libname",
-    types: namedTypeExpressions.map(x => deriveSparkType(x, indexMapping, dg)),
+    types: namedTypeExpressions.map(x => deriveSparkType(x, ectx, indexMapping, dg)),
   };
 }

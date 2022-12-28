@@ -45,10 +45,12 @@ export const parser = generate(`
     / join_type_expression
 
   join_type_expression
-    = head:type_expression_2 tail:(_ "join" _ right:type_expression_2 _ "on" _ value: expression { return {
+    = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 _ "on" _ columns: (leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ) { return {
         kind: 'JoinTypeExpression',
         right,
-        value,
+        type: type ?? "inner",
+        leftColumn: columns[0],
+        rightColumn: columns[1],
     }})*
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
@@ -85,6 +87,10 @@ export const parser = generate(`
     = name: identifier
     { return { kind: "IdentifierTypeExpression", name } }
 
+  type 
+    = expr: (integer_type_expression / float_type_expression / boolean_type_expression / string_type_expression / identifier_type_expression)
+    { return { ...expr, kind: expr.kind.slice(0, -10) } }
+
   object_type_expression
     = "{" _ head: object_type_property tail: (_ "," _ @object_type_property)* _ ("," _)? "}"
     { return { kind: "ObjectTypeExpression", properties: [head, ...tail] } }
@@ -110,16 +116,8 @@ export const parser = generate(`
     { return values ?? [] }
 
   parameter
-    = unbounded_parameter
-    / bounded_type_parameter
-
-  unbounded_parameter
-    = name: identifier _ ":" _ type: type_expression
-    { return { kind: "UnboundedParameter", name, type } }
-
-  bounded_type_parameter
-    = type: type_expression
-    { return { kind: "BoundedTypeParameter", type } }
+    = name: identifier _ ":" _ type: type
+    { return { kind: "Parameter", name, type } }
 
   block_expression
     = "{" values: (_ @expression)* _ "}"
