@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { parser } from "../parser";
-import { BlockExpression, Expression } from "../asts/expression/untyped";
+import { Expression } from "../asts/expression/untyped";
 import { generateLines } from "../passes/lineToString";
 import { deriveSparkProject } from "../passes/typedReltToScala";
 import { generateSparkProject } from "../passes/scalaToLines";
@@ -12,8 +12,13 @@ import { TopLevelExpression } from "../asts/topLevel";
 import { gatherNamedTypeExpressions } from "../passes/extractNamedTypeExpressions";
 import { typeCheckAllExpressions } from "../passes/typeCheck/expression";
 import { evaluateAllExpressions } from "../passes/evaluate";
+import { readDefaultedReltProject } from "../project";
 
-export async function compile(fileName: string) {
+export async function compile() {
+  const reltProject = await readDefaultedReltProject();
+
+  const fileName = `${reltProject.srcDir}/${reltProject.mainFile}`;
+
   let fileContent = (await readFile(fileName)).toString();
 
   fileContent = fileContent.split('\n').map(x => x.replace(/#.*$/, '')).join('\n');
@@ -34,7 +39,7 @@ export async function compile(fileName: string) {
 
   const [typedNamedTypeExpressions, tctx] = typeCheckAllTypeExpressions(linearNamedTypeExpressions);
 
-  const project = deriveSparkProject(typedNamedTypeExpressions, ectx, scope, dependencyGraph);
+  const project = deriveSparkProject(reltProject, typedNamedTypeExpressions, ectx, scope, dependencyGraph);
 
   const lines = generateSparkProject(project);
 

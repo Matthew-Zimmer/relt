@@ -165,4 +165,5 @@ export interface SparkProject {
   types: SparkType[];
   vertices: SparkDependencyVertex[];
   name: string;
+  package: string;
 }

@@ -1,0 +1,3 @@
+#!/bin/sh
+
+node "${RELT_HOME}/dist/main.js" $@

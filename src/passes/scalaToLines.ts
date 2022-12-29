@@ -144,7 +144,7 @@ export function generateSparkType(t: SparkType, packageName: string): Line[] {
 
 export function generateSparkProject(p: SparkProject): Line[] {
   return [
-    line(`package ${p.name}`),
+    line(`package ${p.package === '' ? '' : `${p.package}.`}${p.name}`),
     nl,
     line(`import scala.reflect.runtime.universe.{ TypeTag }`),
     line(`import org.apache.spark.sql.{ Encoders, Dataset, Row, SparkSession }`),

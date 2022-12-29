@@ -3,6 +3,7 @@ import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTra
 import { identifierType, Type, unitType } from "../asts/type";
 import { TypedTypeIntroExpression, TypedTypeExpression } from "../asts/typeExpression/typed";
 import { DependencyGraph } from "../graph";
+import { ReltProject } from "../project";
 import { print, throws, uncap } from "../utils";
 import { evaluate, Scope } from "./evaluate";
 import { hasOverload, isValidExpression } from "./typeCheck/expression";
@@ -317,12 +318,13 @@ export function deriveSparkVertices(dg: DependencyGraph): SparkDependencyVertex[
   }));
 }
 
-export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpression[], ectx: Context, scope: Scope, dg: DependencyGraph): SparkProject {
+export function deriveSparkProject(reltProject: Required<ReltProject>, namedTypeExpressions: TypedTypeIntroExpression[], ectx: Context, scope: Scope, dg: DependencyGraph): SparkProject {
   const indexMapping = new Map(namedTypeExpressions.map((x, i) => [x.name, i]));
 
   return {
     kind: "SparkProject",
-    name: "libname",
+    name: reltProject.name,
+    package: reltProject.package,
     types: namedTypeExpressions.map(x => deriveSparkType(x, ectx, scope, indexMapping, dg)),
     vertices: deriveSparkVertices(dg),
   };

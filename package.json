@@ -11,9 +11,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "peggy": "^2.0.1"
+    "peggy": "^2.0.1",
+    "yargs": "^17.6.2"
   },
   "devDependencies": {
-    "@types/node": "^18.11.17"
+    "@types/node": "^18.11.17",
+    "@types/yargs": "^17.0.17"
   }
 }
