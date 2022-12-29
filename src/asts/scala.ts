@@ -143,8 +143,17 @@ export interface SparkReturnTransformation {
   name: string;
 }
 
+export interface SparkDependencyVertex {
+  kind: "SparkDependencyVertex";
+  id: number;
+  name: string;
+  incoming: number[];
+  outgoing: number[];
+}
+
 export interface SparkProject {
   kind: "SparkProject";
   types: SparkType[];
+  vertices: SparkDependencyVertex[];
   name: string;
 }

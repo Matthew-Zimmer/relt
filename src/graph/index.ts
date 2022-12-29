@@ -16,7 +16,7 @@ export class DependencyGraph {
   private parentEdges = new Map<number, number[]>();
   private vertexLookup = new Map<string, number>();
 
-  constructor(private vertices: Vertex[], edges: Edge[]) {
+  constructor(public vertices: Vertex[], edges: Edge[]) {
     edges.forEach(e => {
       const val = this.childrenEdges.get(e.from) ?? [];
       this.childrenEdges.set(e.from, [...val, e.to]);
@@ -34,11 +34,11 @@ export class DependencyGraph {
     return this.vertexLookup.get(v) ?? throws(`Vertex ${v} is not defined`);
   }
 
-  private parents(id: number): number[] {
+  parents(id: number): number[] {
     return this.parentEdges.get(id) ?? [];
   }
 
-  private children(id: number): number[] {
+  children(id: number): number[] {
     return this.childrenEdges.get(id) ?? [];
   }
 

@@ -1,4 +1,4 @@
-import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo } from "../asts/scala";
+import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo, SparkDependencyVertex } from "../asts/scala";
 import { identifierType, Type, unitType } from "../asts/type";
 import { TypedTypeIntroExpression, TypedTypeExpression } from "../asts/typeExpression/typed";
 import { DependencyGraph } from "../graph";
@@ -242,6 +242,16 @@ export function deriveSparkType(t: TypedTypeIntroExpression, ectx: Context, scop
   };
 }
 
+export function deriveSparkVertices(dg: DependencyGraph): SparkDependencyVertex[] {
+  return dg.vertices.map<SparkDependencyVertex>(x => ({
+    kind: "SparkDependencyVertex",
+    id: x.id,
+    name: x.value,
+    incoming: dg.parents(x.id),
+    outgoing: dg.children(x.id),
+  }));
+}
+
 export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpression[], ectx: Context, scope: Scope, dg: DependencyGraph): SparkProject {
   const indexMapping = new Map(namedTypeExpressions.map((x, i) => [x.name, i]));
 
@@ -249,5 +259,6 @@ export function deriveSparkProject(namedTypeExpressions: TypedTypeIntroExpressio
     kind: "SparkProject",
     name: "libname",
     types: namedTypeExpressions.map(x => deriveSparkType(x, ectx, scope, indexMapping, dg)),
+    vertices: deriveSparkVertices(dg),
   };
 }
