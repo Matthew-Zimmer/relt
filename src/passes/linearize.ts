@@ -1,6 +1,7 @@
 import { LinearObjectTypeExpression, LinearTypeIntroExpression, PrimitiveLinearTypeExpression } from "../asts/typeExpression/linear";
 import { TypeExpression } from "../asts/typeExpression/untyped";
 import { throws } from "../utils";
+import { typeCheckExpression } from "./typeCheck/expression";
 
 function namedLinearize(e: TypeExpression): [string, PrimitiveLinearTypeExpression[]] {
   const exprs = linearize(e);
@@ -81,7 +82,21 @@ export function linearize(e: TypeExpression): PrimitiveLinearTypeExpression[] {
         },
       ];
     }
-    case "WithTypeExpression":
+    case "WithTypeExpression": {
+      const [lName, left] = namedLinearize(e.left);
+      return [
+        ...left,
+        {
+          kind: "LinearTypeIntroExpression",
+          name: `SubStep_${lName}With${e.rules.map(x => x.name).join('_')}`,
+          value: {
+            kind: "LinearWithTypeExpression",
+            left: { kind: "LinearIdentifierTypeExpression", name: lName },
+            rules: e.rules,
+          }
+        }
+      ];
+    }
     case "UnionTypeExpression":
       throw 'TODO';
     case "TypeIntroExpression": {

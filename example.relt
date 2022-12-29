@@ -23,7 +23,9 @@ type Sale = {
   amountDollars: float,
 }
 
-type PersonSale = Person join Sale on id == personId drop personId
+type PersonSale = Person join Sale on id == personId drop personId with {
+  fullName = firstName + " " + lastName
+}
 
 func source(t: Person) { connection + { table: "person" } } 
 func source(t: Sale) { connection + { table: "sale" } }

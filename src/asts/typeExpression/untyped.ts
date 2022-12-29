@@ -1,3 +1,4 @@
+import { Expression } from "../expression/untyped";
 
 export type TypeExpression =
   | ObjectTypeExpression
@@ -62,7 +63,7 @@ export interface DropTypeExpression {
 export interface WithTypeExpression {
   kind: "WithTypeExpression";
   left: TypeExpression;
-  right: TypeExpression;
+  rules: { name: string, value: Expression }[];
 }
 
 export interface UnionTypeExpression {

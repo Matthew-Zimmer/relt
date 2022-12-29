@@ -11,7 +11,7 @@ export function typeEquals(l: Type, r: Type): boolean {
           const lKeys = Object.keys(lObj);
           const rObj = Object.fromEntries(r.properties.map(x => [x.name, x.type]));
           const rKeys = Object.keys(rObj);
-          return lKeys.length === rKeys.length && lKeys.every(k => rObj) && lKeys.every(k => typeEquals(lObj[k], rObj[k]));
+          return lKeys.length === rKeys.length && lKeys.every(k => k in rObj) && lKeys.every(k => typeEquals(lObj[k], rObj[k]));
         }
         case "IntegerType":
         case "FloatType":

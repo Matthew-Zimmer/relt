@@ -1,3 +1,4 @@
+import { TypedExpression } from "../expression/typed";
 import { BooleanType, FloatType, IdentifierType, IntegerType, ObjectType, StringType, Type } from "../type";
 
 type DeepType = Exclude<Type, IdentifierType>;
@@ -83,7 +84,7 @@ export interface TypedDropTypeExpression {
 export interface TypedWithTypeExpression {
   kind: "TypedWithTypeExpression";
   left: TypedTypeExpression;
-  right: TypedTypeExpression;
+  rules: { name: string, value: TypedExpression }[];
   shallowTypeValue: IdentifierType;
   deepTypeValue: ObjectType;
 }

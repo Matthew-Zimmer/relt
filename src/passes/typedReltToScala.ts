@@ -1,3 +1,4 @@
+import { TypedExpression } from "../asts/expression/typed";
 import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo, SparkDependencyVertex } from "../asts/scala";
 import { identifierType, Type, unitType } from "../asts/type";
 import { TypedTypeIntroExpression, TypedTypeExpression } from "../asts/typeExpression/typed";
@@ -77,6 +78,70 @@ export function isSourceType(t: TypedTypeIntroExpression, ectx: Context): boolea
   return true;
 }
 
+export function transformationVarName(i: number): string {
+  return `_v${i}`;
+}
+
+export function namedTransformations(t: TypedExpression, i: number): [string, SparkMapTransformation[], number] {
+  const [rules, varCount1] = deriveTransformationsFromExpression(t, i);
+
+  if (rules.length === 0) {
+    throws(``);
+  }
+
+  return [rules[rules.length - 1].name, rules.filter(x => x.kind !== 'SparkIdentityTransformation'), varCount1];
+}
+
+function deriveTransformationsFromExpression(e: TypedExpression, i: number): [SparkMapTransformation[], number] {
+  switch (e.kind) {
+    case "TypedIntegerExpression":
+    case "TypedFloatExpression":
+    case "TypedBooleanExpression":
+      return [[{ kind: "SparkIdentityTransformation", name: `${e.value}` }], i];
+    case "TypedStringExpression":
+      return [[{ kind: "SparkIdentityTransformation", name: `"${e.value}"` }], i];
+    case "TypedIdentifierExpression":
+      return [[{ kind: "SparkIdentityTransformation", name: e.name }], i];
+    case "TypedApplicationExpression": {
+      const [func, left, i1] = namedTransformations(e.func, i);
+      const [args, right, i2] = e.args.reduce<[string[], SparkMapTransformation[], number]>(([n, l, i], c) => {
+        const x = namedTransformations(c, i);
+        return [[n, x[0]].flat(), [l, x[1]].flat(), x[2]];
+      }, [[], [], i1]);
+
+      return [[
+        ...left,
+        ...right,
+        { kind: "SparkApplicationTransformation", name: transformationVarName(i2), func, args },
+      ], i2 + 1];
+    }
+    case "TypedAddExpression": {
+      const [lName, left, i1] = namedTransformations(e.left, i);
+      const [rName, right, i2] = namedTransformations(e.right, i1);
+
+      return [[
+        ...left,
+        ...right,
+        { kind: "SparkBinaryOperationTransformation", name: transformationVarName(i2), left: lName, op: e.op, right: rName },
+      ], i2 + 1];
+    }
+    case "TypedObjectExpression":
+    case "TypedLetExpression":
+    case "TypedFunctionExpression":
+    case "TypedBlockExpression":
+      throws(`Error: ${e.kind} cannot be converted to transform expressions (as of now)`);
+  }
+}
+
+function deriveTransformationsFromRule(r: { name: string, value: TypedExpression }, i: number): [SparkMapTransformation[], number] {
+  const [rules, i1] = deriveTransformationsFromExpression(r.value, i);
+  if (rules.length === 0)
+    throws(`Internal Error: When deriving transformations from a rule, resulting rules was empty this is not allowed`);
+  const front = rules.slice(0, -1);
+  const last = rules[rules.length - 1];
+  return [[...front, { ...last, name: r.name }], i1];
+}
+
 export function namedSparkRules(t: TypedTypeExpression, varCount: number): [string, SparkRule[], number] {
   const [rules, varCount1] = deriveSparkRules(t, varCount);
 
@@ -134,38 +199,38 @@ export function deriveSparkRules(t: TypedTypeExpression, varCount: number): [Spa
               property: p.name,
             })),
             { kind: "SparkApplicationTransformation", name: "_ret", func: t.shallowTypeValue.name, args: props.map(x => x.name) },
-            { kind: "SparkReturnTransformation", name: "_ret" },
+            { kind: "SparkIdentityTransformation", name: "_ret" },
           ]
         }
       ], varCount1 + 1];
     }
     case 'TypedWithTypeExpression': {
-      // const [leftName, leftRules] = namedSparkRules(t.left);
-      // const [type] = normalize(t.left, {});
+      const [leftName, leftRules, varCount1] = namedSparkRules(t.left, varCount);
 
-      // if (type.kind !== 'ObjectType')
-      //   throws(`deriveSparkRules:WithTypeExpression internal error`);
+      if (t.left.deepTypeValue.kind !== 'ObjectType')
+        throws(`Internal Error: TypedWithTypeExpression left expression deep type is not an object type (${t.left.deepTypeValue.kind})`);
 
-      // const props = type.properties;
+      const props = t.left.deepTypeValue.properties;
+      const [transformations] = t.rules.reduce<[SparkMapTransformation[], number]>(([l, i], r) => {
+        const [l1, i1] = deriveTransformationsFromRule(r, i);
+        return [[l, l1].flat(), i1];
+      }, [[], 0]);
 
-      // // const [rightName, rightRules] = namedSparkRules(t.right);
-
-      // return [
-      //   ...leftRules,
-      //   {
-      //     kind: "SparkMapRule", name: "????", dataset: leftName, transformations: [
-      //       ...props.map<SparkMapTransformation>(p => ({
-      //         kind: "SparkRowExtractTransformation",
-      //         name: p.name,
-      //         property: p.name,
-      //       })),
-      //       { kind: "SparkApplicationTransformation", name: "_ret", func: t.shallowTypeValue.name, args: props.map(x => x.name) },
-      //       { kind: "SparkReturnTransformation", name: "_ret" },
-      //     ]
-      //   },
-      // ];
-
-      throws(`TODO deriveSparkRules:TypedWithTypeExpression`);
+      return [[
+        ...leftRules,
+        {
+          kind: "SparkMapRule", name: tempVarName(varCount1), dataset: leftName, transformations: [
+            ...props.map<SparkMapTransformation>(p => ({
+              kind: 'SparkRowExtractTransformation',
+              name: p.name,
+              property: p.name,
+            })),
+            ...transformations,
+            { kind: "SparkApplicationTransformation", name: "_ret", func: t.shallowTypeValue.name, args: [props, t.rules].flat().map(x => x.name) },
+            { kind: "SparkIdentityTransformation", name: "_ret" },
+          ]
+        }
+      ], varCount1 + 1];
     }
     case 'TypedUnionTypeExpression':
       throws(`TODO deriveSparkRules:TypedUnionTypeExpression`);

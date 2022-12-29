@@ -123,7 +123,8 @@ export interface SparkReturnRule {
 export type SparkMapTransformation =
   | SparkRowExtractTransformation
   | SparkApplicationTransformation
-  | SparkReturnTransformation
+  | SparkIdentityTransformation
+  | SparkBinaryOperationTransformation
 
 export interface SparkRowExtractTransformation {
   kind: "SparkRowExtractTransformation";
@@ -138,9 +139,17 @@ export interface SparkApplicationTransformation {
   args: string[];
 }
 
-export interface SparkReturnTransformation {
-  kind: "SparkReturnTransformation";
+export interface SparkIdentityTransformation {
+  kind: "SparkIdentityTransformation";
   name: string;
+}
+
+export interface SparkBinaryOperationTransformation {
+  kind: "SparkBinaryOperationTransformation";
+  name: string;
+  left: string;
+  op: "+";
+  right: string;
 }
 
 export interface SparkDependencyVertex {

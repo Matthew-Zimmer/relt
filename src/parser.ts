@@ -33,11 +33,19 @@ export const parser = generate(`
     = with_type_expression
 
   with_type_expression
-    = head:drop_type_expression tail:(_ "with" _ right:drop_type_expression _ { return {
+    = head:drop_type_expression tail:(_ "with" _ rules: rule_properties _ { return {
       kind: 'WithTypeExpression',
-      right,
+      rules,
   }})*
   { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  rule_properties
+    = "{" _ head: rule_property tail: (_ "," _ @rule_property)* _ ("," _)? "}"
+    { return [head, ...tail] }
+
+  rule_property
+    = name: identifier _ "=" _ value: expression
+    { return { name, value } }
 
   drop_type_expression
     = left: join_type_expression _ "drop" _ properties: (head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] })

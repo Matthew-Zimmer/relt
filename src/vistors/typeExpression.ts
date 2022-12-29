@@ -22,7 +22,6 @@ export function visitTypeExpression<T>(e: TypeExpression, visitor: Visitor<TypeE
         case "UnionTypeExpression":
         case "WithTypeExpression":
           _visit(e.left);
-          _visit(e.right);
           break;
         case "DropTypeExpression":
           _visit(e.left);

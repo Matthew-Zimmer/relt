@@ -1,3 +1,4 @@
+import { Expression } from "../expression/untyped";
 
 export type LinearTypeExpression =
   | PrimitiveLinearTypeExpression
@@ -65,11 +66,10 @@ export interface LinearDropTypeExpression {
   properties: string[];
 }
 
-// need to thinks
 export interface LinearWithTypeExpression {
   kind: "LinearWithTypeExpression";
   left: LinearIdentifierTypeExpression;
-  right: LinearIdentifierTypeExpression;
+  rules: { name: string, value: Expression }[];
 }
 
 export interface LinearUnionTypeExpression {

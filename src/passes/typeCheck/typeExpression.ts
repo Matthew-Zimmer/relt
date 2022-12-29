@@ -1,8 +1,9 @@
-import { booleanType, floatType, IdentifierType, identifierType, integerType, ObjectType, stringType, Type } from "../../asts/type";
+import { booleanType, floatType, IdentifierType, identifierType, integerType, objectType, ObjectType, stringType, Type } from "../../asts/type";
 import { TypedObjectTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../../asts/typeExpression/typed";
 import { LinearTypeExpression, LinearTypeIntroExpression } from "../../asts/typeExpression/linear";
 import { throws, print } from "../../utils";
 import { Context, typeEquals } from "./utils";
+import { typeCheckExpression } from "./expression";
 
 function resolve(name: string, ctx: Context): Exclude<Type, IdentifierType> {
   if (!(name in ctx))
@@ -152,15 +153,31 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
         kind: "TypedDropTypeExpression",
         left,
         properties: e.properties,
-        shallowTypeValue, // I don't this this is what I want!
+        shallowTypeValue, // I don't this this is what I want! (Update: Maybe I don't remember why)
         deepTypeValue,
       }, ctx2];
     }
     case "LinearWithTypeExpression": {
-      throws(`TODO typeCheckTypeExpression:LinearWithTypeExpression`);
+      const [left, ctx1] = typeCheckTypeExpression(e.left, ctx);
+      if (left.deepTypeValue.kind !== 'ObjectType')
+        throws(`Left of join did not resolve to object type`);
+
+      const ectx: Context = Object.fromEntries(left.deepTypeValue.properties.map(x => [x.name, x.type]));
+
+      const rules = e.rules.map(r => ({ name: r.name, value: typeCheckExpression(r.value, ectx)[0] }));
+
+      const deepTypeValue = mergeObjectTypes(left.deepTypeValue, objectType(...rules.map(x => ({ name: x.name, type: x.value.type }))));
+      const [shallowTypeValue, ctx2] = lookupShallowType(deepTypeValue, ctx1);
+
+      return [{
+        kind: "TypedWithTypeExpression",
+        left,
+        rules,
+        deepTypeValue,
+        shallowTypeValue,
+      }, ctx2];
     }
     case "LinearUnionTypeExpression": {
-      // return [{}, ctx];
       throws(`TODO typeCheckTypeExpression:LinearUnionTypeExpression`);
     }
   }

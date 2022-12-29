@@ -36,7 +36,9 @@ export function generateSparkTransformation(t: SparkMapTransformation): Line[] {
       return [line(`val ${t.name} = row.${t.property}`)];
     case 'SparkApplicationTransformation':
       return [line(`val ${t.name} = ${t.func}(${t.args.join(', ')})`)];
-    case 'SparkReturnTransformation':
+    case 'SparkBinaryOperationTransformation':
+      return [line(`val ${t.name} = ${t.left} ${t.op} ${t.right}`)];
+    case 'SparkIdentityTransformation':
       return [line(`${t.name}`)];
   }
 }
