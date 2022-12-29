@@ -12,6 +12,7 @@ export interface ReltProject {
   package: string;
   srcDir?: string;
   mainFile?: string;
+  outDir?: string;
 }
 
 export function defaultedReltProject(p: ReltProject): Required<ReltProject> {
@@ -20,6 +21,7 @@ export function defaultedReltProject(p: ReltProject): Required<ReltProject> {
     mainFile: p.mainFile ?? 'main.relt',
     package: p.package,
     srcDir: p.srcDir ?? 'src',
+    outDir: p.outDir ?? 'out',
   };
 }
 

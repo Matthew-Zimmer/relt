@@ -1,6 +1,7 @@
 {
   "name": "Test",
-  "package": "",
+  "package": "com.cigna",
   "srcDir": ".",
-  "mainFile": "example.relt"
+  "mainFile": "example.relt",
+  "outDir": "out"
 }

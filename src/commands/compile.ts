@@ -1,4 +1,4 @@
-import { readFile } from "fs/promises";
+import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { parser } from "../parser";
 import { Expression } from "../asts/expression/untyped";
 import { generateLines } from "../passes/lineToString";
@@ -12,7 +12,10 @@ import { TopLevelExpression } from "../asts/topLevel";
 import { gatherNamedTypeExpressions } from "../passes/extractNamedTypeExpressions";
 import { typeCheckAllExpressions } from "../passes/typeCheck/expression";
 import { evaluateAllExpressions } from "../passes/evaluate";
-import { readDefaultedReltProject } from "../project";
+import { readDefaultedReltProject, ReltProject } from "../project";
+import { existsSync } from "fs";
+import { block, line, nl } from "../asts/line";
+import { SparkProject } from "../asts/scala";
 
 export async function compile() {
   const reltProject = await readDefaultedReltProject();
@@ -39,11 +42,44 @@ export async function compile() {
 
   const [typedNamedTypeExpressions, tctx] = typeCheckAllTypeExpressions(linearNamedTypeExpressions);
 
-  const project = deriveSparkProject(reltProject, typedNamedTypeExpressions, ectx, scope, dependencyGraph);
+  const sparkProject = deriveSparkProject(reltProject, typedNamedTypeExpressions, ectx, scope, dependencyGraph);
 
-  const lines = generateSparkProject(project);
+  return writeScalaProject(reltProject, sparkProject);
+}
 
-  const sourceCode = generateLines(lines);
+export async function writeScalaProject(reltProject: Required<ReltProject>, sparkProject: SparkProject) {
+  const projectOutDir = `${reltProject.outDir}/${reltProject.name}`;
+  const packageDir = reltProject.package.split('.').join('/');
 
-  console.log(sourceCode);
+  if (existsSync(projectOutDir))
+    await rm(projectOutDir, { recursive: true, force: true });
+
+  await Promise.all([
+    mkdir(`${projectOutDir}/project`, { recursive: true }),
+    mkdir(`${projectOutDir}/src/main/scala/${packageDir}`, { recursive: true }),
+  ]);
+
+  await Promise.all([
+    writeFile(`${projectOutDir}/project/build.properties`, generateLines([
+      line(`sbt.version = 1.8.0`)
+    ])),
+    writeFile(`${projectOutDir}/build.sbt`, generateLines([
+      line(`name := "libname"`),
+      nl,
+      line(`version := "0.1"`),
+      nl,
+      line(`libraryDependencies += "org.scala-lang" % "scala-library" % "2.12.0"`),
+      nl,
+      line(`val sparkVersion = "3.0.1"`),
+      nl,
+      line(`libraryDependencies ++= Seq(`),
+      block(
+        line(`"org.apache.spark" %% "spark-core" % sparkVersion,`),
+        line(`"org.apache.spark" %% "spark-sql" % sparkVersion,`),
+        line(`"org.apache.spark" %% "spark-mllib" % sparkVersion`),
+      ),
+      line(`)`),
+    ])),
+    writeFile(`${projectOutDir}/src/main/scala/${packageDir}/${reltProject.name}.scala`, generateLines(generateSparkProject(sparkProject))),
+  ]);
 }
