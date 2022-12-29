@@ -9,7 +9,7 @@ export function isReltProject() {
 
 export interface ReltProject {
   name: string;
-  package: string;
+  package?: string;
   srcDir?: string;
   mainFile?: string;
   outDir?: string;
@@ -19,7 +19,7 @@ export function defaultedReltProject(p: ReltProject): Required<ReltProject> {
   return {
     name: p.name,
     mainFile: p.mainFile ?? 'main.relt',
-    package: p.package,
+    package: p.package ?? "",
     srcDir: p.srcDir ?? 'src',
     outDir: p.outDir ?? 'out',
   };

@@ -4,6 +4,9 @@ import { isReltProject, createReltProject } from '../project';
 export interface InitCommandArgs {
   name?: string;
   package?: string;
+  srcDir?: string;
+  outDir?: string;
+  mainFile?: string;
 }
 
 async function question(rl: Interface, query: string): Promise<string> {
@@ -21,9 +24,8 @@ export async function initProject(args: InitCommandArgs) {
     console.log(`Create a new relt project!`);
 
   const name = args.name ?? await question(rl, 'Project Name: ');
-  const package_ = args.package ?? await question(rl, 'Package Name: ');
 
   rl.close();
 
-  return createReltProject({ name, package: package_ });
+  return createReltProject({ ...args, name });
 }
