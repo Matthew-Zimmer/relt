@@ -11,6 +11,7 @@ export type Expression =
   | FunctionExpression
   | BlockExpression
   | ApplicationExpression
+  | AddExpression
 
 export interface LetExpression {
   kind: "LetExpression";
@@ -64,4 +65,11 @@ export interface ApplicationExpression {
   kind: "ApplicationExpression";
   func: Expression;
   args: Expression[];
+}
+
+export interface AddExpression {
+  kind: "AddExpression";
+  left: Expression;
+  op: "+";
+  right: Expression;
 }

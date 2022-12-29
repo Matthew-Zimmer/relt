@@ -12,6 +12,7 @@ export type TypedExpression =
   | TypedFunctionExpression
   | TypedBlockExpression
   | TypedApplicationExpression
+  | TypedAddExpression
 
 export interface TypedLetExpression {
   kind: "TypedLetExpression";
@@ -74,5 +75,13 @@ export interface TypedApplicationExpression {
   kind: "TypedApplicationExpression";
   func: TypedExpression;
   args: TypedExpression[];
+  type: Type;
+}
+
+export interface TypedAddExpression {
+  kind: "TypedAddExpression";
+  left: TypedExpression;
+  op: "+";
+  right: TypedExpression;
   type: Type;
 }

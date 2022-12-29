@@ -8,7 +8,6 @@ let connection = {
   port: 5432,
   user: "root",
   password: "PASSWORD",
-  table: "person",
 }
 
 type Person = {
@@ -26,10 +25,8 @@ type Sale = {
 
 type PersonSale = Person join Sale on id == personId drop personId
 
-func source(t: Person) { connection } 
-# + { table: "person" }
-func source(t: Sale) { connection } 
-# + { table: "sale" }
+func source(t: Person) { connection + { table: "person" } } 
+func source(t: Sale) { connection + { table: "sale" } }
 
 # func destination(t: PersonSale) { connection } 
 # + { table: "person_sale" }

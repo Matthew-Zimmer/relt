@@ -1,6 +1,6 @@
-import { throws } from "../utils";
+import { throws, print } from "../utils";
 import { TypedExpression } from "../asts/expression/typed";
-import { Value } from "../asts/value";
+import { Value, ValueObject } from "../asts/value";
 import { Type } from "../asts/type";
 
 export type Scope = Record<string, Value>;
@@ -28,6 +28,22 @@ export function typeName(t: Type): string {
 
 function mangleName(name: string, types: Type[]): string {
   return `${name}__${types.map(typeName).join('__')}`;
+}
+
+function addFloatFloat(l: number, r: number): number {
+  return l + r;
+}
+
+function addIntInt(l: number, r: number): number {
+  return l + r;
+}
+
+function addStringString(l: string, r: string): string {
+  return l + r;
+}
+
+function addObjectObject(l: ValueObject, r: ValueObject): ValueObject {
+  return { ...l, ...r };
 }
 
 export function evaluate(e: TypedExpression, scope: Scope): [Value, Scope] {
@@ -76,6 +92,43 @@ export function evaluate(e: TypedExpression, scope: Scope): [Value, Scope] {
         throws(`During evaluation of application tried to call non function`);
 
       return [func(...args), scope];
+    }
+    case "TypedAddExpression": {
+      const [left] = evaluate(e.left, scope);
+      const [right] = evaluate(e.right, scope);
+
+      switch (e.op) {
+        case "+":
+          switch (e.left.type.kind) {
+            case "FloatType":
+              switch (e.right.type.kind) {
+                case "FloatType":
+                  return [addFloatFloat(left as number, right as number), scope];
+              }
+              break;
+            case "IntegerType":
+              switch (e.right.type.kind) {
+                case "IntegerType":
+                  return [addIntInt(left as number, right as number), scope];
+              }
+              break;
+            case "StringType":
+              switch (e.right.type.kind) {
+                case "StringType":
+                  return [addStringString(left as string, right as string), scope];
+              }
+              break;
+            case "ObjectType":
+              switch (e.right.type.kind) {
+                case "ObjectType":
+                  return [addObjectObject(left as ValueObject, right as ValueObject), scope];
+              }
+              break;
+          }
+          break;
+      }
+
+      throws(`During evaluation can not perform ${e.op} operation ${e.left.type.kind} with ${e.right.type.kind}`);
     }
   }
 }

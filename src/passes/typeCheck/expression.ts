@@ -98,6 +98,43 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
 
       return [{ kind: "TypedApplicationExpression", func, args, type }, ctx];
     }
+    case "AddExpression": {
+      const [left] = typeCheckExpression(e.left, ctx);
+      const [right] = typeCheckExpression(e.right, ctx);
+
+      switch (e.op) {
+        case "+":
+          switch (left.type.kind) {
+            case "FloatType":
+              switch (right.type.kind) {
+                case "FloatType":
+                  return [{ kind: "TypedAddExpression", left, op: e.op, right, type: floatType() }, ctx];
+              }
+              break;
+            case "IntegerType":
+              switch (right.type.kind) {
+                case "IntegerType":
+                  return [{ kind: "TypedAddExpression", left, op: e.op, right, type: integerType() }, ctx];
+              }
+              break;
+            case "StringType":
+              switch (right.type.kind) {
+                case "StringType":
+                  return [{ kind: "TypedAddExpression", left, op: e.op, right, type: stringType() }, ctx];
+              }
+              break;
+            case "ObjectType":
+              switch (right.type.kind) {
+                case "ObjectType":
+                  return [{ kind: "TypedAddExpression", left, op: e.op, right, type: objectType(...left.type.properties, ...right.type.properties) }, ctx];
+              }
+              break;
+          }
+          break;
+      }
+
+      throws(`Error: Cannot ${e.op} ${left.type.kind} with ${right.type.kind}`);
+    }
   }
 }
 

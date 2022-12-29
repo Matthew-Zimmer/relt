@@ -22,8 +22,8 @@ export const parser = generate(`
 
   expression
     = let_expression
-    / literal_expression
     / func_expression
+    / add_expression
 
   type_intro_expression
     = "type" __ name: identifier _ "=" _ value: type_expression
@@ -122,6 +122,14 @@ export const parser = generate(`
   block_expression
     = "{" values: (_ @expression)* _ "}"
     { return { kind: "BlockExpression", values } }
+
+  add_expression
+    = head:literal_expression tail:(_ op: ("+") _ right:literal_expression _ { return {
+      kind: 'AddExpression',
+      op,
+      right,
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   literal_expression
     = integer_expression

@@ -1,6 +1,6 @@
 import { LinearObjectTypeExpression, LinearTypeIntroExpression, PrimitiveLinearTypeExpression } from "../asts/typeExpression/linear";
 import { TypeExpression } from "../asts/typeExpression/untyped";
-import { print, throws } from "../utils";
+import { throws } from "../utils";
 
 function namedLinearize(e: TypeExpression): [string, PrimitiveLinearTypeExpression[]] {
   const exprs = linearize(e);
