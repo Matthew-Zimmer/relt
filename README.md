@@ -15,14 +15,14 @@ tsc -p .
 ### Link executable to PATH directory
 
 ```sh
-ln -s /some/directory/in/path relt
+ln relt /some/directory/in/path/relt
 ```
 
 ### Add RELT_HOME to Shell file
 
 (for bash)
 ```sh
-echo "export RELT_HOME = \"$(pwd)\"" >> ~/.bashrc
+echo "export RELT_HOME='$(pwd)'" >> ~/.bashrc
 ```
 
 ## Usage
