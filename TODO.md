@@ -8,3 +8,6 @@
 - [ ] Dependency Graph Visualization (Documentation)
 - [ ] Local env testing
 - [ ] Checked constraints
+- [ ] Left joins use optional
+- [ ] Optional types
+- [ ] Array types
