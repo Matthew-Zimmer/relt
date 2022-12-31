@@ -1,5 +1,5 @@
 import { TypedExpression } from "../expression/typed";
-import { BooleanType, FloatType, IdentifierType, IntegerType, ObjectType, StringType, Type } from "../type";
+import { BooleanType, FloatType, ForeignKeyType, IdentifierType, IntegerType, ObjectType, PrimaryKeyType, StringType, Type } from "../type";
 
 type DeepType = Exclude<Type, IdentifierType>;
 
@@ -15,6 +15,8 @@ export type TypedTypeExpression =
   | TypedWithTypeExpression
   | TypedUnionTypeExpression
   | TypedTypeIntroExpression
+  | TypedForeignKeyTypeExpression
+  | TypedPrimaryKeyTypeExpression
 
 export interface TypedTypeIntroExpression {
   kind: "TypedTypeIntroExpression";
@@ -95,4 +97,19 @@ export interface TypedUnionTypeExpression {
   right: TypedTypeExpression;
   shallowTypeValue: IdentifierType;
   deepTypeValue: ObjectType;
+}
+
+export interface TypedForeignKeyTypeExpression {
+  kind: "TypedForeignKeyTypeExpression";
+  table: string;
+  column: string;
+  shallowTypeValue: ForeignKeyType;
+  deepTypeValue: ForeignKeyType;
+}
+
+export interface TypedPrimaryKeyTypeExpression {
+  kind: "TypedPrimaryKeyTypeExpression";
+  of: TypedIntegerTypeExpression | TypedStringTypeExpression;
+  shallowTypeValue: PrimaryKeyType;
+  deepTypeValue: PrimaryKeyType;
 }

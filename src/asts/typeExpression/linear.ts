@@ -15,6 +15,8 @@ export type PrimitiveLinearTypeExpression =
   | LinearStringTypeExpression
   | LinearIdentifierTypeExpression
   | LinearTypeIntroExpression
+  | LinearForeignKeyTypeExpression
+  | LinearPrimaryKeyTypeExpression
 
 export interface LinearTypeIntroExpression {
   kind: "LinearTypeIntroExpression";
@@ -56,8 +58,8 @@ export interface LinearJoinTypeExpression {
   left: LinearIdentifierTypeExpression;
   right: LinearIdentifierTypeExpression;
   type: "inner" | "outer" | "left" | "right";
-  leftColumn: string;
-  rightColumn: string;
+  leftColumn?: string;
+  rightColumn?: string;
 }
 
 export interface LinearDropTypeExpression {
@@ -76,4 +78,15 @@ export interface LinearUnionTypeExpression {
   kind: "LinearUnionTypeExpression";
   left: LinearIdentifierTypeExpression;
   right: LinearIdentifierTypeExpression;
+}
+
+export interface LinearForeignKeyTypeExpression {
+  kind: "LinearForeignKeyTypeExpression";
+  table: string;
+  column: string;
+}
+
+export interface LinearPrimaryKeyTypeExpression {
+  kind: "LinearPrimaryKeyTypeExpression";
+  of: LinearStringTypeExpression | LinearIntegerTypeExpression;
 }

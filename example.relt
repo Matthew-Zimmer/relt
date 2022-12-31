@@ -11,21 +11,27 @@ let connection = {
 }
 
 type Person = {
-  id: int,
+  id: pk int,
   firstName: string,
   lastName: string,
 }
 
 type Sale = {
   # date: date,
-  personId: int,
+  personId: fk Person.id,
   customerName: string,
   amountDollars: float,
 }
 
-type PersonSale = Person join Sale on id == personId drop personId with {
+type PersonSale = Person join Sale with {
   fullName = firstName + " " + lastName
 }
+
+# type PersonSale2 = Person with {
+#  sales: Sale[] order by amountDollars asc,
+#  dollars = sales.amountDollars.sum,
+#  fullName = firstName + " " + lastName,
+# }
 
 func source(t: Person) { connection + { table: "person" } } 
 func source(t: Sale) { connection + { table: "sale" } }

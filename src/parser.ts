@@ -13,7 +13,7 @@ export const parser = generate(`
 
   identifier 
     = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    ! { return ["type", "let", "func"].includes(chars[0] + chars[1].join('')) }
+    ! { return ["type", "let", "func", "fk", "pk"].includes(chars[0] + chars[1].join('')) }
     { return chars[0] + chars[1].join('') }
 
   top_level_expression
@@ -53,12 +53,12 @@ export const parser = generate(`
     / join_type_expression
 
   join_type_expression
-    = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 _ "on" _ columns: (leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ) { return {
+    = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 columns: (_ "on" _ @(leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ))? { return {
         kind: 'JoinTypeExpression',
         right,
         type: type ?? "inner",
-        leftColumn: columns[0],
-        rightColumn: columns[1],
+        leftColumn: columns?.[0],
+        rightColumn: columns?.[1],
     }})*
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
@@ -74,6 +74,8 @@ export const parser = generate(`
     / identifier_type_expression
     / object_type_expression
     / group_type_expression
+    / foreign_key_type_expression
+    / primary_key_type_expression
 
   integer_type_expression
     = "int"
@@ -94,6 +96,14 @@ export const parser = generate(`
   identifier_type_expression
     = name: identifier
     { return { kind: "IdentifierTypeExpression", name } }
+
+  foreign_key_type_expression
+    = "fk" __ table: identifier _ "." _ column: identifier
+    { return { kind: "ForeignKeyTypeExpression", table, column } }
+
+  primary_key_type_expression
+    = "pk" __ of: (integer_type_expression / string_type_expression)
+    { return { kind: "PrimaryKeyTypeExpression", of } }
 
   type 
     = expr: (integer_type_expression / float_type_expression / boolean_type_expression / string_type_expression / identifier_type_expression)

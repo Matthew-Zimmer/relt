@@ -12,6 +12,8 @@ export type TypeExpression =
   | WithTypeExpression
   | UnionTypeExpression
   | TypeIntroExpression
+  | ForeignKeyTypeExpression
+  | PrimaryKeyTypeExpression
 
 export interface TypeIntroExpression {
   kind: "TypeIntroExpression";
@@ -50,8 +52,8 @@ export interface JoinTypeExpression {
   left: TypeExpression;
   right: TypeExpression;
   type: "inner" | "outer" | "left" | "right";
-  leftColumn: string;
-  rightColumn: string;
+  leftColumn?: string;
+  rightColumn?: string;
 }
 
 export interface DropTypeExpression {
@@ -70,4 +72,15 @@ export interface UnionTypeExpression {
   kind: "UnionTypeExpression";
   left: TypeExpression;
   right: TypeExpression;
+}
+
+export interface ForeignKeyTypeExpression {
+  kind: "ForeignKeyTypeExpression";
+  table: string;
+  column: string;
+}
+
+export interface PrimaryKeyTypeExpression {
+  kind: "PrimaryKeyTypeExpression";
+  of: IntegerTypeExpression | StringTypeExpression;
 }

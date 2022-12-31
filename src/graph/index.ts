@@ -95,6 +95,8 @@ function typeDependenciesOf(type: LinearTypeExpression): string[] {
     case 'LinearFloatTypeExpression':
     case 'LinearIntegerTypeExpression':
     case 'LinearStringTypeExpression':
+    case 'LinearPrimaryKeyTypeExpression':
+    case 'LinearForeignKeyTypeExpression': // maybe questionable? I don't think so since its not a data dep its just a relational concept 
       return [];
     case 'LinearIdentifierTypeExpression':
       return [type.name];
@@ -108,6 +110,7 @@ function typeDependenciesOf(type: LinearTypeExpression): string[] {
       return [typeDependenciesOf(type.left), typeDependenciesOf(type.right)].flat();
     case 'LinearTypeIntroExpression':
       return [type.name, typeDependenciesOf(type.value)].flat();
+
   }
 }
 

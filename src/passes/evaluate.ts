@@ -17,6 +17,10 @@ export function typeName(t: Type): string {
       return "string";
     case "IdentifierType":
       return t.name;
+    case "ForeignKeyType":
+      return `fk ${t.table}.${t.column}`;
+    case "PrimaryKeyType":
+      return `pk ${typeName(t.of)}`;
     case "UnitType":
     case "ObjectType":
     case "FunctionType":

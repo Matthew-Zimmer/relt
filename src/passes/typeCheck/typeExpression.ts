@@ -1,6 +1,6 @@
-import { booleanType, floatType, IdentifierType, identifierType, integerType, objectType, ObjectType, stringType, Type } from "../../asts/type";
-import { TypedObjectTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../../asts/typeExpression/typed";
-import { LinearTypeExpression, LinearTypeIntroExpression } from "../../asts/typeExpression/linear";
+import { booleanType, fkType, floatType, ForeignKeyType, IdentifierType, identifierType, integerType, objectType, ObjectType, pkType, PrimaryKeyType, stringType, Type } from "../../asts/type";
+import { TypedIntegerTypeExpression, TypedObjectTypeExpression, TypedStringTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../../asts/typeExpression/typed";
+import { LinearJoinTypeExpression, LinearTypeExpression, LinearTypeIntroExpression } from "../../asts/typeExpression/linear";
 import { throws, print } from "../../utils";
 import { Context, typeEquals } from "./utils";
 import { typeCheckExpression } from "./expression";
@@ -58,6 +58,42 @@ function hasProperty(ty: ObjectType, name: string): boolean {
   return ty.properties.some(x => x.name === name);
 }
 
+function foreignKeys(t: ObjectType) {
+  return t.properties.filter((x): x is { name: string, type: ForeignKeyType } => x.type.kind === 'ForeignKeyType')
+}
+
+function relationsFor(l: { shallowTypeValue: IdentifierType, deepTypeValue: ObjectType }, r: { shallowTypeValue: IdentifierType, deepTypeValue: ObjectType }): [string, string][] {
+  const lfKeys = foreignKeys(l.deepTypeValue);
+  const rfKeys = foreignKeys(r.deepTypeValue);
+  const lRelations = lfKeys.filter(x => x.type.table === r.shallowTypeValue.name).map<[string, string]>(x => [x.name, x.type.column]);
+  const rRelations = rfKeys.filter(x => x.type.table === l.shallowTypeValue.name).map<[string, string]>(x => [x.type.column, x.name]);
+  return [lRelations, rRelations].flat();
+}
+
+function checkJoinRelation(l: TypedTypeExpression, r: TypedTypeExpression, relation: [string | undefined, string | undefined]): [string, string] {
+  if (l.deepTypeValue.kind !== 'ObjectType')
+    throws(`Left of join did not resolve to object type`);
+  if (r.deepTypeValue.kind !== 'ObjectType')
+    throws(`Right of join did not resolve to object type`);
+
+  if (l.shallowTypeValue.kind !== 'IdentifierType')
+    throws(`Left of join did not resolve to object type`);
+  if (r.shallowTypeValue.kind !== 'IdentifierType')
+    throws(`Right of join did not resolve to object type`);
+
+  const relations = relationsFor(l as { shallowTypeValue: IdentifierType, deepTypeValue: ObjectType }, r as { shallowTypeValue: IdentifierType, deepTypeValue: ObjectType });
+
+  const lCol = relation[0] ?? (relations.length === 1 ? relations[0][0] : throws(`For relation ${l.shallowTypeValue.name}, ${r.shallowTypeValue.name} you must provide an explicit on clause`));
+  const rCol = relation[1] ?? (relations.length === 1 ? relations[0][1] : throws(`For relation ${l.shallowTypeValue.name}, ${r.shallowTypeValue.name} you must provide an explicit on clause`));
+
+  if (lCol && !hasProperty(l.deepTypeValue, lCol))
+    throws(`Column ${lCol} is not defined on left type of join`);
+  if (rCol && !hasProperty(r.deepTypeValue, rCol))
+    throws(`Column ${rCol} is not defined on right type of join`);
+
+  return [lCol, rCol]
+}
+
 export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): [TypedTypeExpression, Context] {
   switch (e.kind) {
     case "LinearIntegerTypeExpression": {
@@ -72,7 +108,31 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
     case "LinearStringTypeExpression": {
       return [{ kind: "TypedStringTypeExpression", shallowTypeValue: stringType(), deepTypeValue: stringType() }, ctx];
     }
+    case "LinearPrimaryKeyTypeExpression": {
+      const of = typeCheckTypeExpression(e.of, ctx)[0] as TypedIntegerTypeExpression | TypedStringTypeExpression;
+      return [{ kind: "TypedPrimaryKeyTypeExpression", of, shallowTypeValue: pkType(of.shallowTypeValue), deepTypeValue: pkType(of.deepTypeValue) }, ctx];
+    }
+    case "LinearForeignKeyTypeExpression": {
+      if (!(e.table in ctx))
+        throws(`Error: unknown type ${e.table}`);
 
+      const ty = ctx[e.table];
+
+      if (ty.kind !== 'ObjectType')
+        throws(`Error: ${e.table} is not an object`);
+
+      const prop = ty.properties.find(x => x.name === e.column);
+
+      if (prop === undefined)
+        throws(`Error: ${e.table} does not contain property ${e.column}`);
+
+      if (prop.type.kind !== "IntegerType" && prop.type.kind !== 'StringType' && prop.type.kind !== 'PrimaryKeyType' && prop.type.kind !== 'ForeignKeyType')
+        throws(`Error: Cannot have a foreign key to a non integer or string field`);
+
+      const tyv = fkType(e.table, e.column, prop.type);
+
+      return [{ kind: "TypedForeignKeyTypeExpression", table: e.table, column: e.column, shallowTypeValue: tyv, deepTypeValue: tyv }, ctx];
+    }
     case "LinearObjectTypeExpression": {
       const [properties, ctx1] = e.properties.reduce<[TypedObjectTypeExpression['properties'], Context]>(([a, c], v) => {
         const [e, u] = typeCheckTypeExpression(v.value, c);
@@ -116,26 +176,18 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
 
     case "LinearJoinTypeExpression": {
       const [left, ctx1] = typeCheckTypeExpression(e.left, ctx);
-      if (left.deepTypeValue.kind !== 'ObjectType')
-        throws(`Left of join did not resolve to object type`);
-      if (!hasProperty(left.deepTypeValue, e.leftColumn))
-        throws(`Column ${e.leftColumn} is not defined on left type of join`);
-
       const [right, ctx2] = typeCheckTypeExpression(e.right, ctx1);
-      if (right.deepTypeValue.kind !== 'ObjectType')
-        throws(`Right of join did not resolve to object type`);
-      if (!hasProperty(right.deepTypeValue, e.rightColumn))
-        throws(`Column ${e.rightColumn} is not defined on right type of join`);
+      const [leftColumn, rightColumn] = checkJoinRelation(left, right, [e.leftColumn, e.rightColumn]);
 
-      const deepTypeValue = mergeObjectTypes(left.deepTypeValue, right.deepTypeValue);
+      const deepTypeValue = mergeObjectTypes(left.deepTypeValue as ObjectType, right.deepTypeValue as ObjectType);
       const [shallowTypeValue, ctx3] = lookupShallowType(deepTypeValue, ctx2);
 
       return [{
         kind: "TypedJoinTypeExpression",
         left,
         right,
-        leftColumn: e.leftColumn,
-        rightColumn: e.rightColumn,
+        leftColumn,
+        rightColumn,
         type: e.type,
         shallowTypeValue,
         deepTypeValue,

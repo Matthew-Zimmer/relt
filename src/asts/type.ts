@@ -9,6 +9,8 @@ export type Type =
   | TypeType
   | UnitType
   | UnionType
+  | PrimaryKeyType
+  | ForeignKeyType
 
 export interface ObjectType {
   kind: "ObjectType";
@@ -55,6 +57,23 @@ export interface UnionType {
   types: Type[];
 }
 
+export interface UnionType {
+  kind: "UnionType";
+  types: Type[];
+}
+
+export interface PrimaryKeyType {
+  kind: "PrimaryKeyType";
+  of: IntegerType | StringType;
+}
+
+export interface ForeignKeyType {
+  kind: "ForeignKeyType";
+  table: string;
+  column: string;
+  of: IntegerType | StringType | PrimaryKeyType | ForeignKeyType;
+}
+
 export const objectType = (...properties: { name: string, type: Type }[]): ObjectType => ({ kind: "ObjectType", properties });
 export const integerType = (): IntegerType => ({ kind: "IntegerType" });
 export const floatType = (): FloatType => ({ kind: "FloatType" });
@@ -65,3 +84,5 @@ export const identifierType = (name: string): IdentifierType => ({ kind: "Identi
 export const typeType = (): TypeType => ({ kind: "TypeType" });
 export const unitType = (): UnitType => ({ kind: "UnitType" });
 export const unionType = (...types: Type[]): UnionType => ({ kind: "UnionType", types });
+export const pkType = (of: IntegerType | StringType): PrimaryKeyType => ({ kind: "PrimaryKeyType", of });
+export const fkType = (table: string, column: string, of: ForeignKeyType['of']): ForeignKeyType => ({ kind: "ForeignKeyType", table, column, of });

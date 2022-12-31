@@ -1,7 +1,7 @@
 import { TypedExpression } from "../asts/expression/typed";
 import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo, SparkDependencyVertex } from "../asts/scala";
 import { identifierType, Type, unitType } from "../asts/type";
-import { TypedTypeIntroExpression, TypedTypeExpression } from "../asts/typeExpression/typed";
+import { TypedTypeIntroExpression, TypedTypeExpression, TypedJoinTypeExpression } from "../asts/typeExpression/typed";
 import { DependencyGraph } from "../graph";
 import { ReltProject } from "../project";
 import { print, throws, uncap } from "../utils";
@@ -20,7 +20,11 @@ export function convertToScalaType(t: Type): ScalaType {
     case 'IntegerType':
       return { kind: "ScalaIntType" };
     case 'IdentifierType':
-      return { kind: "ScalaBooleanType" };
+      return { kind: "ScalaIdentifierType", name: t.name };
+    case 'ForeignKeyType':
+      return convertToScalaType(t.of);
+    case 'PrimaryKeyType':
+      return convertToScalaType(t.of);
     case 'FunctionType':
       throws(`Cannot convert a function type to scala`);
     case 'ObjectType':
@@ -53,6 +57,8 @@ function hasCompoundTypes(t: TypedTypeExpression): boolean {
     case "TypedFloatTypeExpression":
     case "TypedBooleanTypeExpression":
     case "TypedStringTypeExpression":
+    case "TypedForeignKeyTypeExpression":
+    case "TypedPrimaryKeyTypeExpression":
       return false;
     case "TypedJoinTypeExpression":
     case "TypedDropTypeExpression":
@@ -164,6 +170,8 @@ export function deriveSparkRules(t: TypedTypeExpression, varCount: number): [Spa
     case 'TypedStringTypeExpression':
     case 'TypedIntegerTypeExpression':
     case 'TypedObjectTypeExpression':
+    case 'TypedPrimaryKeyTypeExpression':
+    case 'TypedForeignKeyTypeExpression':
       return [[], varCount];
     case 'TypedIdentifierTypeExpression':
       return [[

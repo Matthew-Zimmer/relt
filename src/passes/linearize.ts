@@ -1,4 +1,4 @@
-import { LinearObjectTypeExpression, LinearTypeIntroExpression, PrimitiveLinearTypeExpression } from "../asts/typeExpression/linear";
+import { LinearIntegerTypeExpression, LinearObjectTypeExpression, LinearStringTypeExpression, LinearTypeIntroExpression, PrimitiveLinearTypeExpression } from "../asts/typeExpression/linear";
 import { TypeExpression } from "../asts/typeExpression/untyped";
 import { throws } from "../utils";
 import { typeCheckExpression } from "./typeCheck/expression";
@@ -25,6 +25,10 @@ export function linearize(e: TypeExpression): PrimitiveLinearTypeExpression[] {
       return [{ kind: "LinearStringTypeExpression" }];
     case "IdentifierTypeExpression":
       return [{ kind: "LinearIdentifierTypeExpression", name: e.name }];
+    case "PrimaryKeyTypeExpression":
+      return [{ kind: "LinearPrimaryKeyTypeExpression", of: linearize(e.of)[0] as LinearStringTypeExpression | LinearIntegerTypeExpression }];
+    case "ForeignKeyTypeExpression":
+      return [{ kind: "LinearForeignKeyTypeExpression", table: e.table, column: e.column }];
     case "ObjectTypeExpression": {
       const [sub, properties] = e.properties.reduce<[PrimitiveLinearTypeExpression[], LinearObjectTypeExpression['properties']]>(([s, a], p) => {
         const x = linearize(p.value);

@@ -22,6 +22,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "IntegerType":
@@ -37,6 +39,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "FloatType":
@@ -52,6 +56,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "BooleanType":
@@ -67,6 +73,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "StringType":
@@ -82,6 +90,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "FunctionType":
@@ -97,6 +107,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "IdentifierType":
@@ -112,6 +124,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "UnitType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "TypeType":
@@ -129,6 +143,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "IdentifierType":
         case "TypeType":
         case "UnionType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
           return false;
       }
     case "UnionType":
@@ -147,6 +163,42 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "FunctionType":
         case "IdentifierType":
         case "TypeType":
+        case "ForeignKeyType":
+        case "PrimaryKeyType":
+          return false;
+      }
+    case "PrimaryKeyType":
+      switch (r.kind) {
+        case "PrimaryKeyType":
+          return typeEquals(l.of, r.of);
+        case "ObjectType":
+        case "IntegerType":
+        case "FloatType":
+        case "BooleanType":
+        case "StringType":
+        case "FunctionType":
+        case "IdentifierType":
+        case "TypeType":
+        case "UnitType":
+        case "UnionType":
+        case "ForeignKeyType":
+          return false;
+      }
+    case "ForeignKeyType":
+      switch (r.kind) {
+        case "ForeignKeyType":
+          return l.table === r.table && l.column === r.column;
+        case "ObjectType":
+        case "IntegerType":
+        case "FloatType":
+        case "BooleanType":
+        case "StringType":
+        case "FunctionType":
+        case "IdentifierType":
+        case "TypeType":
+        case "UnitType":
+        case "UnionType":
+        case "PrimaryKeyType":
           return false;
       }
   }
