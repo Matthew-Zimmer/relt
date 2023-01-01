@@ -77,7 +77,7 @@ export const parser = generate(`
     = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 columns: (_ "on" _ @(leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ))? { return {
         kind: 'JoinTypeExpression',
         right,
-        type: type ?? "inner",
+        method: type ?? "inner",
         leftColumn: columns?.[0],
         rightColumn: columns?.[1],
     }})*

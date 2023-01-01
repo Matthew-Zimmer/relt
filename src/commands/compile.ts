@@ -2,11 +2,11 @@ import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { parser } from "../parser";
 import { Expression } from "../asts/expression/untyped";
 import { generateLines } from "../passes/lineToString";
-import { deriveSparkProject } from "../passes/typedReltToScala";
+// import { deriveSparkProject } from "../passes/typedReltToScala";
 import { generateSparkProject } from "../passes/scalaToLines";
-import { typeCheckAllTypeExpressions } from "../passes/typeCheck/typeExpression";
-import { linearize } from "../passes/linearize";
-import { LinearTypeIntroExpression } from "../asts/typeExpression/linear";
+import { isTypeIdentifierOf, typeCheckAllTypeExpressions } from "../passes/typeCheck/typeExpression";
+import { flatten } from "../passes/flatten";
+import { FlatTypeIntroExpression } from "../asts/typeExpression/flat";
 import { namedTypeDependencyGraph } from "../graph";
 import { TopLevelExpression } from "../asts/topLevel";
 import { gatherNamedTypeExpressions } from "../passes/extractNamedTypeExpressions";
@@ -16,7 +16,10 @@ import { readDefaultedReltProject, ReltProject } from "../project";
 import { existsSync } from "fs";
 import { block, Line, line, nl } from "../asts/line";
 import { SparkProject } from "../asts/scala";
-import { generateAllSourceCodeLinear, generateAllSourceCodeTyped, generateAllSourceCodeUntyped } from "../debug/debug";
+import { generateAllSourceCodeFlat, generateAllSourceCodeTyped, generateAllSourceCodeUntyped } from "../debug/debug";
+import { deriveSparkProject } from "../passes/typedReltToScala";
+import { TypedTypeIntroExpression } from "../asts/typeExpression/typed";
+import { ObjectType } from "../asts/type";
 
 export interface CompileArgs {
   "developer-mode": boolean;
@@ -68,23 +71,24 @@ export async function compile(args: CompileArgs) {
 
   const namedTypeExpressions = gatherNamedTypeExpressions(topLevelExpressions);
 
-  const linearNamedTypeExpressions = namedTypeExpressions.flatMap(linearize) as LinearTypeIntroExpression[];
+  const flatNamedTypeExpressions = namedTypeExpressions.flatMap(flatten) as FlatTypeIntroExpression[];
 
   if (args["developer-mode"]) {
-    console.log(`Writing developer linear checkpoint`);
-    await writeDeveloperLog(`out/developer/linear.txt`, [expressions, linearNamedTypeExpressions].flat(), generateAllSourceCodeLinear);
+    console.log(`Writing developer flat checkpoint`);
+    await writeDeveloperLog(`out/developer/flat.txt`, [expressions, flatNamedTypeExpressions].flat(), generateAllSourceCodeFlat);
   }
 
-  const dependencyGraph = namedTypeDependencyGraph(linearNamedTypeExpressions);
+  const dependencyGraph = namedTypeDependencyGraph(flatNamedTypeExpressions);
 
-  const [typedNamedTypeExpressions, tctx] = typeCheckAllTypeExpressions(linearNamedTypeExpressions);
+  let [typedNamedTypeExpressions, tctx] = typeCheckAllTypeExpressions(flatNamedTypeExpressions);
+  const typedNamedTypeExpressions2 = typedNamedTypeExpressions.filter((x): x is TypedTypeIntroExpression<ObjectType> => x.type.kind === 'ObjectType');
 
   if (args["developer-mode"]) {
     console.log(`Writing developer typed checkpoint`);
     await writeDeveloperLog(`out/developer/typed.txt`, [typedExpressions, typedNamedTypeExpressions].flat(), generateAllSourceCodeTyped);
   }
 
-  const sparkProject = deriveSparkProject(reltProject, typedNamedTypeExpressions, ectx, scope, dependencyGraph);
+  const sparkProject = deriveSparkProject(reltProject, typedNamedTypeExpressions2, ectx, scope, dependencyGraph);
 
   return writeScalaProject(reltProject, sparkProject);
 }

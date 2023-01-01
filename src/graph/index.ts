@@ -1,4 +1,4 @@
-import { LinearTypeExpression, LinearTypeIntroExpression } from "../asts/typeExpression/linear";
+import { FlatTypeExpression, FlatTypeIntroExpression } from "../asts/typeExpression/flat";
 import { throws, dedup } from "../utils";
 
 interface Vertex {
@@ -89,34 +89,34 @@ export class DependencyGraph {
   }
 }
 
-function typeDependenciesOf(type: LinearTypeExpression): string[] {
+function typeDependenciesOf(type: FlatTypeExpression): string[] {
   switch (type.kind) {
-    case 'LinearBooleanTypeExpression':
-    case 'LinearFloatTypeExpression':
-    case 'LinearIntegerTypeExpression':
-    case 'LinearStringTypeExpression':
-    case 'LinearPrimaryKeyTypeExpression':
-    case 'LinearForeignKeyTypeExpression': // maybe questionable? I don't think so since its not a data dep its just a relational concept 
+    case 'FlatBooleanTypeExpression':
+    case 'FlatFloatTypeExpression':
+    case 'FlatIntegerTypeExpression':
+    case 'FlatStringTypeExpression':
+    case 'FlatPrimaryKeyTypeExpression':
+    case 'FlatForeignKeyTypeExpression': // maybe questionable? I don't think so since its not a data dep its just a relational concept 
       return [];
-    case 'LinearIdentifierTypeExpression':
+    case 'FlatIdentifierTypeExpression':
       return [type.name];
-    case 'LinearObjectTypeExpression':
+    case 'FlatObjectTypeExpression':
       return type.properties.flatMap(x => typeDependenciesOf(x.value));
-    case 'LinearDropTypeExpression':
-    case 'LinearWithTypeExpression':
-    case "LinearGroupByTypeExpression":
+    case 'FlatDropTypeExpression':
+    case 'FlatWithTypeExpression':
+    case "FlatGroupByTypeExpression":
       return typeDependenciesOf(type.left);
-    case 'LinearJoinTypeExpression':
-    case 'LinearUnionTypeExpression':
+    case 'FlatJoinTypeExpression':
+    case 'FlatUnionTypeExpression':
       return [typeDependenciesOf(type.left), typeDependenciesOf(type.right)].flat();
-    case 'LinearTypeIntroExpression':
+    case 'FlatTypeIntroExpression':
       return [type.name, typeDependenciesOf(type.value)].flat();
-    case 'LinearArrayTypeExpression':
+    case 'FlatArrayTypeExpression':
       return typeDependenciesOf(type.of);
   }
 }
 
-export function namedTypeDependencyGraph(types: LinearTypeIntroExpression[]): DependencyGraph {
+export function namedTypeDependencyGraph(types: FlatTypeIntroExpression[]): DependencyGraph {
   const graph: Record<string, string[]> = {};
 
   for (const { name, value } of types) {

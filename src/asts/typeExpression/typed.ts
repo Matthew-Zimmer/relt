@@ -1,7 +1,5 @@
 import { TypedExpression } from "../expression/typed";
-import { BooleanType, FloatType, ForeignKeyType, IdentifierType, IntegerType, ObjectType, PrimaryKeyType, StringType, Type } from "../type";
-
-type DeepType = Exclude<Type, IdentifierType>;
+import { ArrayType, BooleanType, ObjectType, FloatType, ForeignKeyType, IdentifierType, IntegerType, PrimaryKeyType, StringType, Type } from "../type";
 
 export type TypedTypeExpression =
   | TypedObjectTypeExpression
@@ -20,136 +18,104 @@ export type TypedTypeExpression =
   | TypedArrayTypeExpression
   | TypedGroupByTypeExpression
 
-export interface TypedTypeIntroExpression {
-  kind: "TypedTypeIntroExpression";
-  name: string;
-  value: TypedTypeExpression;
-  shallowTypeValue: Type;
-  deepTypeValue: DeepType;
-}
-
-export interface TypedObjectTypeExpression {
-  kind: "TypedObjectTypeExpression";
-  properties: { name: string, value: TypedTypeExpression }[];
-  shallowTypeValue: ObjectType;
-  deepTypeValue: ObjectType;
-}
-
-export interface TypedIntegerTypeExpression {
-  kind: "TypedIntegerTypeExpression";
-  shallowTypeValue: IntegerType;
-  deepTypeValue: IntegerType;
-}
-
-export interface TypedFloatTypeExpression {
-  kind: "TypedFloatTypeExpression";
-  shallowTypeValue: FloatType;
-  deepTypeValue: FloatType;
-}
-
-export interface TypedBooleanTypeExpression {
-  kind: "TypedBooleanTypeExpression";
-  shallowTypeValue: BooleanType;
-  deepTypeValue: BooleanType;
-}
-
-export interface TypedStringTypeExpression {
-  kind: "TypedStringTypeExpression";
-  shallowTypeValue: StringType;
-  deepTypeValue: StringType;
-}
-
-export interface TypedIdentifierTypeExpression {
-  kind: "TypedIdentifierTypeExpression";
-  name: string;
-  shallowTypeValue: Type;
-  deepTypeValue: DeepType;
-}
-
-export interface TypedJoinTypeExpression {
-  kind: "TypedJoinTypeExpression";
-  left: TypedTypeExpression;
-  right: TypedTypeExpression;
-  type: "inner" | "outer" | "left" | "right";
-  leftColumn: string;
-  rightColumn: string;
-  shallowTypeValue: IdentifierType;
-  deepTypeValue: ObjectType;
-}
-
-export interface TypedDropTypeExpression {
-  kind: "TypedDropTypeExpression";
-  left: TypedTypeExpression;
-  properties: string[];
-  shallowTypeValue: IdentifierType;
-  deepTypeValue: ObjectType;
-}
-
-export interface TypedWithTypeExpression {
-  kind: "TypedWithTypeExpression";
-  left: TypedTypeExpression;
-  rules: TypedRuleProperty[];
-  shallowTypeValue: IdentifierType;
-  deepTypeValue: ObjectType;
-}
-
-export type TypedRuleProperty =
-  | TypedRuleValueProperty
-  | TypedRuleTypeProperty
-
-export interface TypedRuleValueProperty {
-  kind: "TypedRuleValueProperty";
+export interface NamedTypedExpression {
   name: string;
   value: TypedExpression;
 }
 
-export interface TypedRuleTypeProperty {
-  kind: "TypedRuleTypeProperty";
+export interface TypedTypeIntroExpression<T extends Type = Type> {
+  kind: "TypedTypeIntroExpression";
   name: string;
   value: TypedTypeExpression;
+  type: T;
 }
 
-export interface TypedUnionTypeExpression {
-  kind: "TypedUnionTypeExpression";
-  left: TypedTypeExpression;
-  right: TypedTypeExpression;
-  shallowTypeValue: IdentifierType;
-  deepTypeValue: ObjectType;
+export interface TypedIntegerTypeExpression {
+  kind: "TypedIntegerTypeExpression";
+  type: IntegerType;
+}
+
+export interface TypedFloatTypeExpression {
+  kind: "TypedFloatTypeExpression";
+  type: FloatType;
+}
+
+export interface TypedBooleanTypeExpression {
+  kind: "TypedBooleanTypeExpression";
+  type: BooleanType;
+}
+
+export interface TypedStringTypeExpression {
+  kind: "TypedStringTypeExpression";
+  type: StringType;
 }
 
 export interface TypedForeignKeyTypeExpression {
   kind: "TypedForeignKeyTypeExpression";
   table: string;
   column: string;
-  shallowTypeValue: ForeignKeyType;
-  deepTypeValue: ForeignKeyType;
+  type: ForeignKeyType;
 }
 
 export interface TypedPrimaryKeyTypeExpression {
   kind: "TypedPrimaryKeyTypeExpression";
   of: TypedIntegerTypeExpression | TypedStringTypeExpression;
-  shallowTypeValue: PrimaryKeyType;
-  deepTypeValue: PrimaryKeyType;
+  type: PrimaryKeyType;
+}
+
+export interface TypedObjectTypeExpression {
+  kind: "TypedObjectTypeExpression";
+  properties: { name: string, value: TypedTypeExpression }[];
+  type: ObjectType;
 }
 
 export interface TypedArrayTypeExpression {
   kind: "TypedArrayTypeExpression";
   of: TypedTypeExpression;
-  shallowTypeValue: Type;
-  deepTypeValue: DeepType;
+  type: ArrayType;
+}
+
+export interface TypedIdentifierTypeExpression<T extends Type = Type> {
+  kind: "TypedIdentifierTypeExpression";
+  name: string;
+  type: T;
+}
+
+export interface TypedJoinTypeExpression {
+  kind: "TypedJoinTypeExpression";
+  left: TypedIdentifierTypeExpression<ObjectType>;
+  right: TypedIdentifierTypeExpression<ObjectType>;
+  method: "inner" | "outer" | "left" | "right";
+  leftColumn: string;
+  rightColumn: string;
+  type: ObjectType;
+}
+
+export interface TypedDropTypeExpression {
+  kind: "TypedDropTypeExpression";
+  left: TypedIdentifierTypeExpression<ObjectType>;
+  properties: string[];
+  type: ObjectType;
+}
+
+export interface TypedWithTypeExpression {
+  kind: "TypedWithTypeExpression";
+  left: TypedIdentifierTypeExpression<ObjectType>;
+  rules: NamedTypedExpression[];
+  type: ObjectType;
+}
+
+export interface TypedUnionTypeExpression {
+  kind: "TypedUnionTypeExpression";
+  left: TypedIdentifierTypeExpression<ObjectType>;
+  right: TypedIdentifierTypeExpression<ObjectType>;
+  type: ObjectType;
 }
 
 export interface TypedGroupByTypeExpression {
   kind: "TypedGroupByTypeExpression";
-  left: TypedTypeExpression;
+  left: TypedIdentifierTypeExpression<ObjectType>;
   column: string;
-  aggregations: TypedAggProperty[];
-  shallowTypeValue: Type;
-  deepTypeValue: DeepType;
-}
-
-export interface TypedAggProperty {
-  kind: "TypedAggProperty";
-  name: string;
-  value: TypedExpression;
+  aggregations: NamedTypedExpression[];
+  type: ObjectType;
 }

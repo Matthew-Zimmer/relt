@@ -53,7 +53,7 @@ export interface JoinTypeExpression {
   kind: "JoinTypeExpression";
   left: TypeExpression;
   right: TypeExpression;
-  type: "inner" | "outer" | "left" | "right";
+  method: "inner" | "outer" | "left" | "right";
   leftColumn?: string;
   rightColumn?: string;
 }

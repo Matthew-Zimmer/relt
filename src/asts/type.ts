@@ -14,6 +14,18 @@ export type Type =
   | ArrayType
   | OptionalType
 
+export type PrimitiveType =
+  | IntegerType
+  | FloatType
+  | BooleanType
+  | StringType
+  | IdentifierType
+  | UnitType
+  | PrimaryKeyType
+  | ForeignKeyType
+  | ArrayType<PrimitiveType>
+  | OptionalType<PrimitiveType>
+
 export interface ObjectType {
   kind: "ObjectType";
   properties: { name: string, type: Type }[];
@@ -76,14 +88,14 @@ export interface ForeignKeyType {
   of: IntegerType | StringType | PrimaryKeyType | ForeignKeyType;
 }
 
-export interface ArrayType {
+export interface ArrayType<T extends Type = Type> {
   kind: "ArrayType";
-  of: Type;
+  of: T;
 }
 
-export interface OptionalType {
+export interface OptionalType<T extends Type = Type> {
   kind: "OptionalType";
-  of: Type;
+  of: T;
 }
 
 export const objectType = (...properties: { name: string, type: Type }[]): ObjectType => ({ kind: "ObjectType", properties });

@@ -1,10 +1,4 @@
 
-export interface SparkType {
-  kind: "SparkType";
-  caseClass: ScalaCaseClass;
-  datasetHandler: DatasetHandler;
-}
-
 export interface ScalaCaseClass {
   kind: "ScalaCaseClass";
   name: string;
@@ -20,6 +14,7 @@ export type ScalaType =
   | ScalaIdentifierType
   | ScalaArrayType
   | ScalaOptionalType
+  | ScalaUnitType
 
 export interface ScalaIntType {
   kind: "ScalaIntType";
@@ -56,90 +51,94 @@ export interface ScalaOptionalType {
   of: ScalaType;
 }
 
-export type DatasetHandler =
-  | SourceDatasetHandler
-  | DerivedDatasetHandler
-
-export interface SourceDatasetHandler {
-  kind: "SourceDatasetHandler";
-  typeName: string;
-  datasetIndex: number;
-  datasetCount: number;
-  connectionInfo: SparkConnectionInfo;
+export interface ScalaUnitType {
+  kind: "ScalaUnitType";
 }
 
-export type SparkConnectionInfo =
-  | SparkDBConnectionInfo
+// export type DatasetHandler =
+//   | SourceDatasetHandler
+//   | DerivedDatasetHandler
 
-export interface SparkDBConnectionInfo {
-  kind: "SparkDBConnectionInfo";
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  table: string;
-  // TODO
-  // columns: string[]; 
-}
+// export interface SourceDatasetHandler {
+//   kind: "SourceDatasetHandler";
+//   typeName: string;
+//   datasetIndex: number;
+//   datasetCount: number;
+//   connectionInfo: SparkConnectionInfo;
+// }
 
-export interface DerivedDatasetHandler {
-  kind: "DerivedDatasetHandler";
-  typeName: string;
-  datasetIndex: number;
-  datasetCount: number;
-  parentDatasets: { name: string, index: number }[];
-  rules: SparkRule[];
-}
+// export type SparkConnectionInfo =
+//   | SparkDBConnectionInfo
 
-export type SparkRule =
-  | SparkJoinRule
-  | SparkMapRule
-  | SparkAsRule
-  | SparkIdentityRule
-  | SparkReturnRule
-  | SparkGroupAggRule
+// export interface SparkDBConnectionInfo {
+//   kind: "SparkDBConnectionInfo";
+//   host: string;
+//   port: number;
+//   user: string;
+//   password: string;
+//   table: string;
+//   // TODO
+//   // columns: string[]; 
+// }
 
-export interface SparkJoinRule {
-  kind: "SparkJoinRule";
-  name: string;
-  left: string;
-  right: string;
-  type: "inner" | "outer" | "left" | "right";
-  leftColumn: string;
-  rightColumn: string;
-}
+// export interface DerivedDatasetHandler {
+//   kind: "DerivedDatasetHandler";
+//   typeName: string;
+//   datasetIndex: number;
+//   datasetCount: number;
+//   parentDatasets: { name: string, index: number }[];
+//   rules: SparkRule[];
+// }
 
-export interface SparkMapRule {
-  kind: "SparkMapRule";
-  name: string;
-  dataset: string;
-  transformations: SparkMapTransformation[];
-}
+// export type SparkRule =
+//   | SparkJoinRule
+//   | SparkMapRule
+//   | SparkAsRule
+//   | SparkIdentityRule
+//   | SparkReturnRule
+//   | SparkGroupAggRule
 
-export interface SparkAsRule {
-  kind: "SparkAsRule";
-  name: string;
-  dataset: string;
-  type: string;
-}
+// export interface SparkJoinRule {
+//   kind: "SparkJoinRule";
+//   name: string;
+//   left: string;
+//   right: string;
+//   type: "inner" | "outer" | "left" | "right";
+//   leftColumn: string;
+//   rightColumn: string;
+// }
 
-export interface SparkIdentityRule {
-  kind: "SparkIdentityRule";
-  name: string;
-}
+// export interface SparkMapRule {
+//   kind: "SparkMapRule";
+//   name: string;
+//   dataset: string;
+//   transformations: SparkMapTransformation[];
+// }
 
-export interface SparkReturnRule {
-  kind: "SparkReturnRule";
-  name: string;
-}
+// export interface SparkAsRule {
+//   kind: "SparkAsRule";
+//   name: string;
+//   dataset: string;
+//   type: string;
+// }
 
-export interface SparkGroupAggRule {
-  kind: "SparkGroupAggRule";
-  name: string;
-  dataset: string;
-  groupColumn: string;
-  aggregations: SparkAggregation[];
-}
+// export interface SparkIdentityRule {
+//   kind: "SparkIdentityRule";
+//   name: string;
+// }
+
+// export interface SparkReturnRule {
+//   kind: "SparkReturnRule";
+//   name: string;
+// }
+
+// export interface SparkGroupAggRule {
+//   kind: "SparkGroupAggRule";
+//   name: string;
+//   dataset: string;
+//   groupColumn: string;
+//   aggregations: SparkAggregation[];
+// }
 
 export type SparkAggregation =
   | SparkCollectListAggregation
@@ -158,44 +157,116 @@ export interface SparkSqlAggregation {
   column: string;
 }
 
-export type SparkMapTransformation =
-  | SparkRowExtractTransformation
-  | SparkApplicationTransformation
-  | SparkIdentityTransformation
-  | SparkBinaryOperationTransformation
-  | SparkGetOrElseTransformation
+export type SparkMapRule =
+  | SparkRowExtractRule
+  | SparkApplicationRule
+  | SparkIdentityRule
+  | SparkBinaryOperationRule
+  | SparkGetOrElseRule
 
-export interface SparkRowExtractTransformation {
-  kind: "SparkRowExtractTransformation";
+export interface SparkRowExtractRule {
+  kind: "SparkRowExtractRule";
   name: string;
   property: string;
 }
 
-export interface SparkApplicationTransformation {
-  kind: "SparkApplicationTransformation";
+export interface SparkApplicationRule {
+  kind: "SparkApplicationRule";
   name: string;
   func: string;
   args: string[];
 }
 
-export interface SparkIdentityTransformation {
-  kind: "SparkIdentityTransformation";
+export interface SparkIdentityRule {
+  kind: "SparkIdentityRule";
   name: string;
 }
 
-export interface SparkBinaryOperationTransformation {
-  kind: "SparkBinaryOperationTransformation";
+export interface SparkBinaryOperationRule {
+  kind: "SparkBinaryOperationRule";
   name: string;
   left: string;
   op: "+";
   right: string;
 }
 
-export interface SparkGetOrElseTransformation {
-  kind: "SparkGetOrElseTransformation";
+export interface SparkGetOrElseRule {
+  kind: "SparkGetOrElseRule";
   name: string;
   left: string;
   right: string;
+}
+
+// export interface SparkDependencyVertex {
+//   kind: "SparkDependencyVertex";
+//   id: number;
+//   name: string;
+//   incoming: number[];
+//   outgoing: number[];
+// }
+
+// export interface SparkProject {
+//   kind: "SparkProject";
+//   implicitCaseClasses: ScalaCaseClass[];
+//   types: SparkType[];
+//   vertices: SparkDependencyVertex[];
+//   name: string;
+//   package: string;
+// }
+
+export type SparkDatasetHandler =
+  | SparkDBSourceDatasetHandler
+  | SparkJoinDatasetHandler
+  | SparkDropDatasetHandler
+  | SparkMapDatasetHandler
+  | SparkGroupDatasetHandler
+
+export interface DatasetId {
+  name: string;
+  idx: number;
+}
+
+export interface SparkDBSourceDatasetHandler {
+  kind: "SparkDBSourceDatasetHandler";
+  output: DatasetId;
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  table: string;
+  columns: string[];
+}
+
+export interface SparkJoinDatasetHandler {
+  kind: "SparkJoinDatasetHandler";
+  leftInput: DatasetId;
+  rightInput: DatasetId;
+  output: DatasetId;
+  leftColumn: string;
+  rightColumn: string;
+  method: string;
+}
+
+export interface SparkDropDatasetHandler {
+  kind: "SparkDropDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  properties: string[];
+}
+
+export interface SparkMapDatasetHandler {
+  kind: "SparkMapDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  rules: SparkMapRule[];
+}
+
+export interface SparkGroupDatasetHandler {
+  kind: "SparkGroupDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  column: string;
+  aggregations: SparkAggregation[];
 }
 
 export interface SparkDependencyVertex {
@@ -208,9 +279,9 @@ export interface SparkDependencyVertex {
 
 export interface SparkProject {
   kind: "SparkProject";
-  implicitCaseClasses: ScalaCaseClass[];
-  types: SparkType[];
-  vertices: SparkDependencyVertex[];
   name: string;
   package: string;
+  datasetHandlers: SparkDatasetHandler[];
+  caseClasses: ScalaCaseClass[];
+  vertices: SparkDependencyVertex[];
 }

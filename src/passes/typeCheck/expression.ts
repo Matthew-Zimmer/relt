@@ -144,7 +144,10 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
 
       const [right] = typeCheckExpression(e.right, ctx);
 
-      if (!typeEquals(left.type.of, right.type) && !(right.type.kind === 'ArrayType' && right.type.of.kind === 'UnitType'))
+      if (right.type.kind === 'ArrayType' && right.type.of.kind === 'UnitType')
+        right.type = left.type.of;
+
+      if (!typeEquals(left.type.of, right.type))
         throws(`Error: Cannot change the type of the left side of a default expression was ${typeName(left.type.of)} trying to change it to ${typeName(right.type)}`);
 
       return [{
