@@ -6,15 +6,15 @@
   - [ ] count
   - [ ] max
   - [ ] min
-- [s] Grouped aggregations
-  - [s] array
-  - [s] sum
-  - [s] count
-  - [s] max
-  - [s] min
-- [ ] Array types
-- [ ] Left joins use optional
-- [ ] Optional types
+- [x] Grouped aggregations
+  - [x] array
+  - [x] sum
+  - [x] count
+  - [x] max
+  - [x] min
+- [x] Array types
+- [x] Left joins use optional
+- [x] Optional types
 - [ ] Using scala libraries 
 - [ ] Delta format
 - [ ] JDBC format
