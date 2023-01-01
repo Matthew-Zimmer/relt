@@ -1,5 +1,5 @@
 import { LinearIntegerTypeExpression, LinearObjectTypeExpression, LinearStringTypeExpression, LinearTypeIntroExpression, PrimitiveLinearTypeExpression } from "../asts/typeExpression/linear";
-import { TypeExpression } from "../asts/typeExpression/untyped";
+import { RuleTypeProperty, TypeExpression } from "../asts/typeExpression/untyped";
 import { throws } from "../utils";
 import { typeCheckExpression } from "./typeCheck/expression";
 
@@ -88,15 +88,38 @@ export function linearize(e: TypeExpression): PrimitiveLinearTypeExpression[] {
     }
     case "WithTypeExpression": {
       const [lName, left] = namedLinearize(e.left);
+      const typeRules = e.rules.filter((x): x is RuleTypeProperty => x.kind === 'RuleTypeProperty');
+      const steps = typeRules.map(r => namedLinearize(r.value));
+      let s = 0;
+
       return [
         ...left,
+        ...steps.flatMap(x => x[1]),
         {
           kind: "LinearTypeIntroExpression",
           name: `SubStep_${lName}With${e.rules.map(x => x.name).join('_')}`,
           value: {
             kind: "LinearWithTypeExpression",
             left: { kind: "LinearIdentifierTypeExpression", name: lName },
-            rules: e.rules,
+            rules: e.rules.map(r => {
+              switch (r.kind) {
+                case 'RuleTypeProperty':
+                  return {
+                    kind: "LinearRuleTypeProperty",
+                    name: r.name,
+                    value: {
+                      kind: "LinearIdentifierTypeExpression",
+                      name: steps[s++][0],
+                    }
+                  };
+                case 'RuleValueProperty':
+                  return {
+                    kind: "LinearRuleValueProperty",
+                    name: r.name,
+                    value: r.value,
+                  };
+              }
+            }),
           }
         }
       ];
@@ -118,6 +141,35 @@ export function linearize(e: TypeExpression): PrimitiveLinearTypeExpression[] {
         ...front,
         me
       ];
+    }
+    case "ArrayTypeExpression": {
+      const [name, of] = namedLinearize(e.of);
+      return [
+        ...of,
+        {
+          kind: "LinearArrayTypeExpression",
+          of: { kind: "LinearIdentifierTypeExpression", name }
+        }
+      ];
+    }
+    case "GroupByTypeExpression": {
+      const [name, left] = namedLinearize(e.left);
+      return [
+        ...left,
+        {
+          kind: "LinearTypeIntroExpression",
+          name: `SubStep_${name}GroupBy${e.column}`,
+          value: {
+            kind: "LinearGroupByTypeExpression",
+            column: e.column,
+            left: { kind: "LinearIdentifierTypeExpression", name },
+            aggregations: e.aggregations.map(x => ({
+              ...x,
+              kind: "LinearAggProperty",
+            })),
+          }
+        }
+      ]
     }
   }
 }

@@ -1,6 +1,20 @@
 # TODO
 
-- [ ] Aggregations of data
+- [ ] Aggregations
+  - [ ] array
+  - [ ] sum
+  - [ ] count
+  - [ ] max
+  - [ ] min
+- [s] Grouped aggregations
+  - [s] array
+  - [s] sum
+  - [s] count
+  - [s] max
+  - [s] min
+- [ ] Array types
+- [ ] Left joins use optional
+- [ ] Optional types
 - [ ] Using scala libraries 
 - [ ] Delta format
 - [ ] JDBC format
@@ -8,6 +22,4 @@
 - [ ] Dependency Graph Visualization (Documentation)
 - [ ] Local env testing
 - [ ] Checked constraints
-- [ ] Left joins use optional
-- [ ] Optional types
-- [ ] Array types
+- [ ] Union type expressions

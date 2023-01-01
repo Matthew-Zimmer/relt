@@ -1,5 +1,5 @@
 import { nl, line, block, Line } from '../asts/line';
-import { DatasetHandler, DerivedDatasetHandler, ScalaCaseClass, ScalaType, SourceDatasetHandler, SparkConnectionInfo, SparkMapTransformation, SparkProject, SparkRule, SparkType } from '../asts/scala';
+import { DatasetHandler, DerivedDatasetHandler, ScalaCaseClass, ScalaType, SourceDatasetHandler, SparkAggregation, SparkConnectionInfo, SparkMapTransformation, SparkProject, SparkRule, SparkType } from '../asts/scala';
 import { uncap } from '../utils';
 
 export function generateScalaType(t: ScalaType): string {
@@ -16,6 +16,10 @@ export function generateScalaType(t: ScalaType): string {
       return 'Int';
     case 'ScalaStringType':
       return 'String';
+    case 'ScalaArrayType':
+      return `Array[${generateScalaType(t.of)}]`;
+    case 'ScalaOptionalType':
+      return `Option[${generateScalaType(t.of)}]`;
   }
 }
 
@@ -40,6 +44,17 @@ export function generateSparkTransformation(t: SparkMapTransformation): Line[] {
       return [line(`val ${t.name} = ${t.left} ${t.op} ${t.right}`)];
     case 'SparkIdentityTransformation':
       return [line(`${t.name}`)];
+    case 'SparkGetOrElseTransformation':
+      return [line(`val ${t.name} = ${t.left}.getOrElse(${t.right})`)];
+  }
+}
+
+export function generateSparkAggregation(a: SparkAggregation): Line[] {
+  switch (a.kind) {
+    case 'SparkCollectListAggregation':
+      return [line(`collect_list(struct(${a.columns.map(x => `col("${x}")`).join(', ')})) as "${a.name}",`)];
+    case 'SparkSqlAggregation':
+      return [line(`${a.func}(col("${a.column}")) as "${a.name}",`)];
   }
 }
 
@@ -61,6 +76,14 @@ export function generateSparkRule(r: SparkRule): Line[] {
       return [];
     case 'SparkReturnRule':
       return [line(`${r.name}`)];
+    case 'SparkGroupAggRule':
+      return [
+        line(`val ${r.name} = ${r.dataset}.groupBy(col("${r.groupColumn}")).agg(`),
+        block(
+          ...r.aggregations.flatMap(generateSparkAggregation)
+        ),
+        line(`)`),
+      ];
   }
 }
 
@@ -309,6 +332,7 @@ export function generateSparkProject(p: SparkProject): Line[] {
     line(`}`),
     nl,
     line(`// --- GENERATED CODE ---`),
+    ...p.implicitCaseClasses.flatMap(x => [...generateCaseClass(x), nl]),
     nl,
     line(`// All datasets in the project`),
     nl,

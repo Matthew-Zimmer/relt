@@ -7,9 +7,11 @@ export type LinearTypeExpression =
   | LinearDropTypeExpression
   | LinearWithTypeExpression
   | LinearUnionTypeExpression
+  | LinearGroupByTypeExpression
 
 export type PrimitiveLinearTypeExpression =
   | LinearIntegerTypeExpression
+  | LinearArrayTypeExpression
   | LinearFloatTypeExpression
   | LinearBooleanTypeExpression
   | LinearStringTypeExpression
@@ -71,7 +73,23 @@ export interface LinearDropTypeExpression {
 export interface LinearWithTypeExpression {
   kind: "LinearWithTypeExpression";
   left: LinearIdentifierTypeExpression;
-  rules: { name: string, value: Expression }[];
+  rules: LinearRuleProperty[];
+}
+
+export type LinearRuleProperty =
+  | LinearRuleValueProperty
+  | LinearRuleTypeProperty
+
+export interface LinearRuleValueProperty {
+  kind: "LinearRuleValueProperty";
+  name: string;
+  value: Expression;
+}
+
+export interface LinearRuleTypeProperty {
+  kind: "LinearRuleTypeProperty";
+  name: string;
+  value: LinearTypeExpression;
 }
 
 export interface LinearUnionTypeExpression {
@@ -89,4 +107,22 @@ export interface LinearForeignKeyTypeExpression {
 export interface LinearPrimaryKeyTypeExpression {
   kind: "LinearPrimaryKeyTypeExpression";
   of: LinearStringTypeExpression | LinearIntegerTypeExpression;
+}
+
+export interface LinearArrayTypeExpression {
+  kind: "LinearArrayTypeExpression";
+  of: PrimitiveLinearTypeExpression;
+}
+
+export interface LinearGroupByTypeExpression {
+  kind: "LinearGroupByTypeExpression";
+  left: LinearIdentifierTypeExpression;
+  column: string;
+  aggregations: LinearAggProperty[];
+}
+
+export interface LinearAggProperty {
+  kind: "LinearAggProperty";
+  name: string;
+  value: Expression;
 }

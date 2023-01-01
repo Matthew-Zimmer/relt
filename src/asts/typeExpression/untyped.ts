@@ -14,6 +14,8 @@ export type TypeExpression =
   | TypeIntroExpression
   | ForeignKeyTypeExpression
   | PrimaryKeyTypeExpression
+  | ArrayTypeExpression
+  | GroupByTypeExpression
 
 export interface TypeIntroExpression {
   kind: "TypeIntroExpression";
@@ -65,7 +67,23 @@ export interface DropTypeExpression {
 export interface WithTypeExpression {
   kind: "WithTypeExpression";
   left: TypeExpression;
-  rules: { name: string, value: Expression }[];
+  rules: RuleProperty[];
+}
+
+export type RuleProperty =
+  | RuleValueProperty
+  | RuleTypeProperty
+
+export interface RuleValueProperty {
+  kind: "RuleValueProperty";
+  name: string;
+  value: Expression;
+}
+
+export interface RuleTypeProperty {
+  kind: "RuleTypeProperty";
+  name: string;
+  value: TypeExpression;
 }
 
 export interface UnionTypeExpression {
@@ -83,4 +101,22 @@ export interface ForeignKeyTypeExpression {
 export interface PrimaryKeyTypeExpression {
   kind: "PrimaryKeyTypeExpression";
   of: IntegerTypeExpression | StringTypeExpression;
+}
+
+export interface ArrayTypeExpression {
+  kind: "ArrayTypeExpression";
+  of: TypeExpression;
+}
+
+export interface GroupByTypeExpression {
+  kind: "GroupByTypeExpression";
+  left: TypeExpression;
+  column: string;
+  aggregations: AggProperty[];
+}
+
+export interface AggProperty {
+  kind: "AggProperty";
+  name: string;
+  value: Expression;
 }

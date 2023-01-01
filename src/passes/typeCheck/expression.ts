@@ -1,8 +1,9 @@
 import { TypedBlockExpression, TypedExpression } from '../../asts/expression/typed';
 import { Expression } from '../../asts/expression/untyped';
-import { booleanType, floatType, FunctionType, functionType, integerType, objectType, stringType, Type, unionType, unitType } from '../../asts/type';
+import { arrayType, booleanType, floatType, FunctionType, functionType, integerType, objectType, stringType, Type, unionType, unitType } from '../../asts/type';
 import { Context, typeEquals } from './utils';
 import { throws } from '../../utils';
+import { typeName } from '../evaluate';
 
 function addFunctionToContext(ctx: Context, name: string, type: Type): Context {
   if (!(name in ctx))
@@ -134,6 +135,35 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
       }
 
       throws(`Error: Cannot ${e.op} ${left.type.kind} with ${right.type.kind}`);
+    }
+    case "DefaultExpression": {
+      const [left] = typeCheckExpression(e.left, ctx);
+
+      if (left.type.kind !== 'OptionalType')
+        throws(`Error: Cannot apply a default expression to a non optional expression`);
+
+      const [right] = typeCheckExpression(e.right, ctx);
+
+      if (!typeEquals(left.type.of, right.type) && !(right.type.kind === 'ArrayType' && right.type.of.kind === 'UnitType'))
+        throws(`Error: Cannot change the type of the left side of a default expression was ${typeName(left.type.of)} trying to change it to ${typeName(right.type)}`);
+
+      return [{
+        kind: "TypedDefaultExpression",
+        left,
+        right,
+        op: "??",
+        type: left.type.of,
+      }, ctx];
+    }
+    case "ArrayExpression": {
+      const values = e.values.map(x => typeCheckExpression(x, ctx)[0]);
+      const types = values.map(x => x.type);
+      if (types.length === 0)
+        return [{ kind: "TypedArrayExpression", values, type: arrayType(unitType()) }, ctx];
+      for (const [i, t] of types.entries())
+        if (!typeEquals(types[0], t))
+          throws(`Error: array value at idx ${i} is ${typeName(t)} which does not equal ${typeName(types[0])}`);
+      return [{ kind: "TypedArrayExpression", values, type: arrayType(types[0]) }, ctx];
     }
   }
 }

@@ -1,13 +1,27 @@
-import { TypedExpression } from "../asts/expression/typed";
-import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo, SparkDependencyVertex } from "../asts/scala";
-import { identifierType, Type, unitType } from "../asts/type";
-import { TypedTypeIntroExpression, TypedTypeExpression, TypedJoinTypeExpression } from "../asts/typeExpression/typed";
+import { TypedExpression, TypedIdentifierExpression } from "../asts/expression/typed";
+import { ScalaType, ScalaCaseClass, SourceDatasetHandler, SparkRule, SparkMapTransformation, DerivedDatasetHandler, DatasetHandler, SparkType, SparkProject, SparkConnectionInfo, SparkDependencyVertex, SparkAggregation } from "../asts/scala";
+import { identifierType, ObjectType, Type, unitType } from "../asts/type";
+import { TypedTypeIntroExpression, TypedTypeExpression, TypedJoinTypeExpression, TypedRuleProperty, TypedAggProperty } from "../asts/typeExpression/typed";
+import { generateType } from "../debug/debug";
 import { DependencyGraph } from "../graph";
 import { ReltProject } from "../project";
 import { print, throws, uncap } from "../utils";
 import { evaluate, Scope } from "./evaluate";
 import { hasOverload, isValidExpression } from "./typeCheck/expression";
-import { Context } from "./typeCheck/utils";
+import { Context, typeEquals } from "./typeCheck/utils";
+
+let implicitCaseClasses: [string, ObjectType][] = [];
+
+function implicitCaseClassFor(t: ObjectType): string {
+  const result = implicitCaseClasses.find(x => typeEquals(x[1], t));
+  if (result) return result[0];
+  const name = `ImplicitCaseClass_${implicitCaseClasses.length}`;
+  implicitCaseClasses.push([
+    name,
+    t,
+  ]);
+  return name;
+}
 
 export function convertToScalaType(t: Type): ScalaType {
   switch (t.kind) {
@@ -25,10 +39,14 @@ export function convertToScalaType(t: Type): ScalaType {
       return convertToScalaType(t.of);
     case 'PrimaryKeyType':
       return convertToScalaType(t.of);
+    case 'ArrayType':
+      return { kind: "ScalaArrayType", of: convertToScalaType(t.of) };
+    case 'OptionalType':
+      return { kind: "ScalaOptionalType", of: convertToScalaType(t.of) };
     case 'FunctionType':
       throws(`Cannot convert a function type to scala`);
     case 'ObjectType':
-      throws(`Cannot convert object type to scala (this could be done but is not supported as I don't think it is useful)`);
+      return { kind: "ScalaIdentifierType", name: implicitCaseClassFor(t) };
     case 'TypeType':
       throws(`Cannot convert type type to scala`);
     case 'UnitType':
@@ -42,7 +60,7 @@ export function deriveScalaCaseClass(t: TypedTypeIntroExpression): ScalaCaseClas
   const type = t.deepTypeValue;
 
   if (type.kind !== 'ObjectType')
-    throws(`Cannot convert non object type to scala case class`);
+    throws(`Cannot convert non object type to scala case class ${generateType(type)}`);
 
   return {
     kind: "ScalaCaseClass",
@@ -64,10 +82,14 @@ function hasCompoundTypes(t: TypedTypeExpression): boolean {
     case "TypedDropTypeExpression":
     case "TypedWithTypeExpression":
     case "TypedUnionTypeExpression":
+    case "TypedGroupByTypeExpression":
       return true;
 
     case "TypedIdentifierTypeExpression": // this might be wrong
       return true;
+
+    case 'TypedArrayTypeExpression':
+      return hasCompoundTypes(t.of);
 
     case "TypedObjectTypeExpression":
       return t.properties.some(p => hasCompoundTypes(p.value));
@@ -132,21 +154,83 @@ function deriveTransformationsFromExpression(e: TypedExpression, i: number): [Sp
         { kind: "SparkBinaryOperationTransformation", name: transformationVarName(i2), left: lName, op: e.op, right: rName },
       ], i2 + 1];
     }
+    case "TypedDefaultExpression": {
+      const [lName, left, i1] = namedTransformations(e.left, i);
+      const [rName, right, i2] = namedTransformations(e.right, i1);
+
+      return [[
+        ...left,
+        ...right,
+        { kind: "SparkGetOrElseTransformation", name: transformationVarName(i2), left: lName, right: rName },
+      ], i2 + 1];
+    }
     case "TypedObjectExpression":
     case "TypedLetExpression":
     case "TypedFunctionExpression":
     case "TypedBlockExpression":
       throws(`Error: ${e.kind} cannot be converted to transform expressions (as of now)`);
+    case "TypedArrayExpression": {
+      const [names, rules, i1] = e.values.reduce<[string[], SparkMapTransformation[], number]>(([n, r, i], c) => {
+        const x = namedTransformations(c, i);
+        return [[n, x[0]].flat(), [r, x[1]].flat(), x[2]];
+      }, [[], [], i]);
+
+      return [[
+        ...rules,
+        { kind: "SparkApplicationTransformation", name: tempVarName(i1), func: "Array", args: names }
+      ], i1 + 1];
+    }
   }
 }
 
-function deriveTransformationsFromRule(r: { name: string, value: TypedExpression }, i: number): [SparkMapTransformation[], number] {
+function deriveTransformationsFromRule(r: TypedRuleProperty, i: number): [SparkMapTransformation[], number] {
+  if (r.kind === 'TypedRuleTypeProperty')
+    throws(`TODO: deriveTransformationsFromRule:TypedRuleTypeProperty`);
+
   const [rules, i1] = deriveTransformationsFromExpression(r.value, i);
   if (rules.length === 0)
     throws(`Internal Error: When deriving transformations from a rule, resulting rules was empty this is not allowed`);
   const front = rules.slice(0, -1);
   const last = rules[rules.length - 1];
   return [[...front, { ...last, name: r.name }], i1];
+}
+
+function deriveAggregation(p: TypedAggProperty, i: number): [SparkAggregation, number] {
+  let agg: SparkAggregation;
+
+  switch (p.value.kind) {
+    case "TypedApplicationExpression": {
+      if (p.value.func.kind !== 'TypedIdentifierExpression')
+        throws(`Cannot convert application with non identifier func`);
+      switch (p.value.func.name) {
+        case "collect":
+          agg = {
+            kind: "SparkCollectListAggregation",
+            name: p.name,
+            columns: (p.value.args[0].type as ObjectType).properties.map(x => x.name),
+          };
+          break;
+        case "sum":
+        case "count":
+        case "max":
+        case "min":
+          agg = {
+            kind: "SparkSqlAggregation",
+            name: p.name,
+            func: p.value.func.name,
+            column: (p.value.args[0] as TypedIdentifierExpression).name,
+          };
+          break;
+        default:
+          throws(`Error: Non aggregation function ${p.value.func.name}`);
+      }
+      break;
+    }
+    default:
+      throws(`Cannot convert ${p.value.kind} to agg needs to be an application expression`);
+  }
+
+  return [agg, i];
 }
 
 export function namedSparkRules(t: TypedTypeExpression, varCount: number): [string, SparkRule[], number] {
@@ -243,6 +327,31 @@ export function deriveSparkRules(t: TypedTypeExpression, varCount: number): [Spa
     }
     case 'TypedUnionTypeExpression':
       throws(`TODO deriveSparkRules:TypedUnionTypeExpression`);
+    case "TypedArrayTypeExpression":
+      throws(`TODO deriveSparkRules:TypedArrayTypeExpression`);
+    case "TypedGroupByTypeExpression": {
+      const [leftName, leftRules, varCount1] = namedSparkRules(t.left, varCount);
+
+      if (t.left.deepTypeValue.kind !== 'ObjectType')
+        throws(`Internal Error: TypedWithTypeExpression left expression deep type is not an object type (${t.left.deepTypeValue.kind})`);
+
+      const props = t.left.deepTypeValue.properties;
+      const [aggregations] = t.aggregations.reduce<[SparkAggregation[], number]>(([l, i], r) => {
+        const [l1, i1] = deriveAggregation(r, i);
+        return [[l, l1].flat(), i1];
+      }, [[], 0]);
+
+      return [[
+        ...leftRules,
+        {
+          kind: "SparkGroupAggRule",
+          name: tempVarName(varCount1),
+          dataset: leftName,
+          groupColumn: t.column,
+          aggregations,
+        }
+      ], varCount1 + 1];
+    }
   }
 }
 
@@ -335,5 +444,12 @@ export function deriveSparkProject(reltProject: Required<ReltProject>, namedType
     package: reltProject.package,
     types: namedTypeExpressions.map(x => deriveSparkType(x, ectx, scope, indexMapping, dg)),
     vertices: deriveSparkVertices(dg),
+    implicitCaseClasses: implicitCaseClasses.map(([name, t]) => (
+      {
+        kind: "ScalaCaseClass",
+        name: name,
+        properties: t.properties.map(x => ({ name: x.name, type: convertToScalaType(x.type) })),
+      }
+    )),
   };
 }

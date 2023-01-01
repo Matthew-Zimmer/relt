@@ -17,6 +17,8 @@ export type TypedTypeExpression =
   | TypedTypeIntroExpression
   | TypedForeignKeyTypeExpression
   | TypedPrimaryKeyTypeExpression
+  | TypedArrayTypeExpression
+  | TypedGroupByTypeExpression
 
 export interface TypedTypeIntroExpression {
   kind: "TypedTypeIntroExpression";
@@ -86,9 +88,25 @@ export interface TypedDropTypeExpression {
 export interface TypedWithTypeExpression {
   kind: "TypedWithTypeExpression";
   left: TypedTypeExpression;
-  rules: { name: string, value: TypedExpression }[];
+  rules: TypedRuleProperty[];
   shallowTypeValue: IdentifierType;
   deepTypeValue: ObjectType;
+}
+
+export type TypedRuleProperty =
+  | TypedRuleValueProperty
+  | TypedRuleTypeProperty
+
+export interface TypedRuleValueProperty {
+  kind: "TypedRuleValueProperty";
+  name: string;
+  value: TypedExpression;
+}
+
+export interface TypedRuleTypeProperty {
+  kind: "TypedRuleTypeProperty";
+  name: string;
+  value: TypedTypeExpression;
 }
 
 export interface TypedUnionTypeExpression {
@@ -112,4 +130,26 @@ export interface TypedPrimaryKeyTypeExpression {
   of: TypedIntegerTypeExpression | TypedStringTypeExpression;
   shallowTypeValue: PrimaryKeyType;
   deepTypeValue: PrimaryKeyType;
+}
+
+export interface TypedArrayTypeExpression {
+  kind: "TypedArrayTypeExpression";
+  of: TypedTypeExpression;
+  shallowTypeValue: Type;
+  deepTypeValue: DeepType;
+}
+
+export interface TypedGroupByTypeExpression {
+  kind: "TypedGroupByTypeExpression";
+  left: TypedTypeExpression;
+  column: string;
+  aggregations: TypedAggProperty[];
+  shallowTypeValue: Type;
+  deepTypeValue: DeepType;
+}
+
+export interface TypedAggProperty {
+  kind: "TypedAggProperty";
+  name: string;
+  value: TypedExpression;
 }

@@ -24,6 +24,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "IntegerType":
@@ -41,6 +43,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "FloatType":
@@ -58,6 +62,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "BooleanType":
@@ -75,6 +81,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "StringType":
@@ -92,6 +100,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "FunctionType":
@@ -109,6 +119,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "IdentifierType":
@@ -126,6 +138,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "TypeType":
@@ -145,6 +159,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnionType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "UnionType":
@@ -165,6 +181,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "TypeType":
         case "ForeignKeyType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "PrimaryKeyType":
@@ -182,6 +200,8 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnitType":
         case "UnionType":
         case "ForeignKeyType":
+        case "ArrayType":
+        case "OptionalType":
           return false;
       }
     case "ForeignKeyType":
@@ -199,6 +219,46 @@ export function typeEquals(l: Type, r: Type): boolean {
         case "UnitType":
         case "UnionType":
         case "PrimaryKeyType":
+        case "ArrayType":
+        case "OptionalType":
+          return false;
+      }
+    case "ArrayType":
+      switch (r.kind) {
+        case "ArrayType":
+          return typeEquals(l.of, r.of);
+        case "ObjectType":
+        case "IntegerType":
+        case "FloatType":
+        case "BooleanType":
+        case "StringType":
+        case "FunctionType":
+        case "IdentifierType":
+        case "TypeType":
+        case "UnitType":
+        case "UnionType":
+        case "PrimaryKeyType":
+        case "ForeignKeyType":
+        case "OptionalType":
+          return false;
+      }
+    case "OptionalType":
+      switch (r.kind) {
+        case "OptionalType":
+          return typeEquals(l.of, r.of);
+        case "ObjectType":
+        case "IntegerType":
+        case "FloatType":
+        case "BooleanType":
+        case "StringType":
+        case "FunctionType":
+        case "IdentifierType":
+        case "TypeType":
+        case "UnitType":
+        case "UnionType":
+        case "PrimaryKeyType":
+        case "ForeignKeyType":
+        case "ArrayType":
           return false;
       }
   }

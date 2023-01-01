@@ -2,32 +2,12 @@ import { throws, print } from "../utils";
 import { TypedExpression } from "../asts/expression/typed";
 import { Value, ValueObject } from "../asts/value";
 import { Type } from "../asts/type";
+import { generateType } from "../debug/debug";
 
 export type Scope = Record<string, Value>;
 
 export function typeName(t: Type): string {
-  switch (t.kind) {
-    case "IntegerType":
-      return "int";
-    case "FloatType":
-      return "float";
-    case "BooleanType":
-      return "bool";
-    case "StringType":
-      return "string";
-    case "IdentifierType":
-      return t.name;
-    case "ForeignKeyType":
-      return `fk ${t.table}.${t.column}`;
-    case "PrimaryKeyType":
-      return `pk ${typeName(t.of)}`;
-    case "UnitType":
-    case "ObjectType":
-    case "FunctionType":
-    case "TypeType":
-    case "UnionType":
-      throws(`Cannot convert ${t.kind} to a type name`);
-  }
+  return generateType(t);
 }
 
 function mangleName(name: string, types: Type[]): string {
@@ -133,6 +113,15 @@ export function evaluate(e: TypedExpression, scope: Scope): [Value, Scope] {
       }
 
       throws(`During evaluation can not perform ${e.op} operation ${e.left.type.kind} with ${e.right.type.kind}`);
+    }
+    case "TypedDefaultExpression": {
+      const [left] = evaluate(e.left, scope);
+      if (left !== null && left !== undefined) return [left, scope];
+      return [evaluate(e.right, scope)[0], scope];
+    }
+    case "TypedArrayExpression": {
+      const values = e.values.map(x => evaluate(x, scope)[0]);
+      return [values, scope];
     }
   }
 }

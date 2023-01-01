@@ -12,6 +12,8 @@ export type Expression =
   | BlockExpression
   | ApplicationExpression
   | AddExpression
+  | DefaultExpression
+  | ArrayExpression
 
 export interface LetExpression {
   kind: "LetExpression";
@@ -72,4 +74,16 @@ export interface AddExpression {
   left: Expression;
   op: "+";
   right: Expression;
+}
+
+export interface DefaultExpression {
+  kind: "DefaultExpression";
+  left: Expression;
+  op: "??";
+  right: Expression;
+}
+
+export interface ArrayExpression {
+  kind: "ArrayExpression";
+  values: Expression[];
 }

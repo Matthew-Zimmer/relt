@@ -6,7 +6,7 @@ async function main() {
   yargs
     .scriptName("relt")
     .command('compile', 'Compile the relt project', {
-
+      "developer-mode": { boolean: true, description: 'Generate relt developer checkpoints for testing', default: false },
     }, compile)
     .command('init', 'Create a new project', {
       name: { string: true, alias: 'n', description: 'The name of the project' },

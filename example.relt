@@ -23,15 +23,17 @@ type Sale = {
   amountDollars: float,
 }
 
-type PersonSale = Person join Sale with {
-  fullName = firstName + " " + lastName
+type PersonSaleAgg = Sale group by personId agg {
+  sales = collect(this),
+  dollars = sum(amountDollars),
 }
 
-# type PersonSale2 = Person with {
-#  sales: Sale[] order by amountDollars asc,
-#  dollars = sales.amountDollars.sum,
-#  fullName = firstName + " " + lastName,
-# }
+type PersonSaleLeftJoin = Person left join PersonSaleAgg
+
+type PersonSale = PersonSaleLeftJoin with {
+  sales = sales ?? [],
+  dollars = dollars ?? 0.0,
+}
 
 func source(t: Person) { connection + { table: "person" } } 
 func source(t: Sale) { connection + { table: "sale" } }

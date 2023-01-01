@@ -104,13 +104,15 @@ function typeDependenciesOf(type: LinearTypeExpression): string[] {
       return type.properties.flatMap(x => typeDependenciesOf(x.value));
     case 'LinearDropTypeExpression':
     case 'LinearWithTypeExpression':
+    case "LinearGroupByTypeExpression":
       return typeDependenciesOf(type.left);
     case 'LinearJoinTypeExpression':
     case 'LinearUnionTypeExpression':
       return [typeDependenciesOf(type.left), typeDependenciesOf(type.right)].flat();
     case 'LinearTypeIntroExpression':
       return [type.name, typeDependenciesOf(type.value)].flat();
-
+    case 'LinearArrayTypeExpression':
+      return typeDependenciesOf(type.of);
   }
 }
 

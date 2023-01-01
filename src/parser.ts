@@ -23,7 +23,7 @@ export const parser = generate(`
   expression
     = let_expression
     / func_expression
-    / add_expression
+    / default_expression
 
   type_intro_expression
     = "type" __ name: identifier _ "=" _ value: type_expression
@@ -44,13 +44,34 @@ export const parser = generate(`
     { return [head, ...tail] }
 
   rule_property
+    = rule_value_property
+//    / rule_type_property
+
+  rule_value_property
     = name: identifier _ "=" _ value: expression
-    { return { name, value } }
+    { return { kind: "RuleValueProperty", name, value } }
+
+  rule_type_property
+    = name: identifier _ ":" _ value: type_expression
+    { return { kind: "RuleTypeProperty", name, value } }
 
   drop_type_expression
-    = left: join_type_expression _ "drop" _ properties: (head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] })
+    = left: group_by_type_expression _ "drop" _ properties: (head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] })
     { return { kind: "DropTypeExpression", left, properties } }
+    / group_by_type_expression
+
+  group_by_type_expression
+    = left: join_type_expression _ "group" __ "by" __ column: identifier __ "agg" _ aggregations: agg_properties
+    { return { kind: "GroupByTypeExpression", left, column, aggregations } }
     / join_type_expression
+
+  agg_properties
+    = "{" _ head: agg_property tail: (_ "," _ @agg_property)* _ ("," _)? "}"
+    { return [head, ...tail] }
+
+  agg_property
+    = name: identifier _ "=" _ value: expression
+    { return { kind: "AggProperty", name, value } }
 
   join_type_expression
     = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 columns: (_ "on" _ @(leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ))? { return {
@@ -63,8 +84,15 @@ export const parser = generate(`
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   type_expression_2
-    = literal_type_expression
+    = array_type_expression
     / type_intro_expression
+    / literal_type_expression
+
+  array_type_expression
+    = head:literal_type_expression tail:(_ "[" _ "]" { return {
+      kind: 'ArrayTypeExpression',
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, of: t }), head) }
 
   literal_type_expression
     = integer_type_expression
@@ -141,22 +169,42 @@ export const parser = generate(`
     = "{" values: (_ @expression)* _ "}"
     { return { kind: "BlockExpression", values } }
 
+  default_expression
+    = head:add_expression tail:(_ op: ("??") _ right:add_expression _ { return {
+      kind: 'DefaultExpression',
+      op,
+      right,
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
   add_expression
-    = head:literal_expression tail:(_ op: ("+") _ right:literal_expression _ { return {
+    = head:application_expression tail:(_ op: ("+") _ right:application_expression _ { return {
       kind: 'AddExpression',
       op,
       right,
   }})*
   { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
+  application_expression
+    = head:literal_expression tail:(_ args: application_args _ { return {
+      kind: 'ApplicationExpression',
+      args,
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, func: t }), head) }
+
+  application_args
+    = "(" _ args: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? ")"
+    { return args ?? [] }
+
   literal_expression
-    = integer_expression
-    / float_expression
+    = float_expression
+    / integer_expression
     / boolean_expression
     / string_expression
     / identifier_expression
     / object_expression
     / group_expression
+    / array_expression
 
   group_expression
     = "(" _ value: expression _ ")"
@@ -172,7 +220,7 @@ export const parser = generate(`
 
   float_expression
     = integer_part: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") }) "." decimal_part: [0-9]+
-    { return { kind: "IntegerExpression", value: Number(integer_part + "." + decimal_part) } }
+    { return { kind: "FloatExpression", value: Number(integer_part + "." + decimal_part) } }
   
   string_expression
     = "\\"" chars: [^\\"]* "\\""
@@ -189,4 +237,8 @@ export const parser = generate(`
   object_property
     = name: identifier _ ":" _ value: expression
     { return { name, value } }
+
+  array_expression
+    = "[" _ values: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? "]"
+    { return { kind: "ArrayExpression", values: values ?? [] } }
 `);

@@ -18,6 +18,8 @@ export type ScalaType =
   | ScalaStringType
   | ScalaDateType
   | ScalaIdentifierType
+  | ScalaArrayType
+  | ScalaOptionalType
 
 export interface ScalaIntType {
   kind: "ScalaIntType";
@@ -42,6 +44,16 @@ export interface ScalaDateType {
 export interface ScalaIdentifierType {
   kind: "ScalaIdentifierType";
   name: string;
+}
+
+export interface ScalaArrayType {
+  kind: "ScalaArrayType";
+  of: ScalaType;
+}
+
+export interface ScalaOptionalType {
+  kind: "ScalaOptionalType";
+  of: ScalaType;
 }
 
 export type DatasetHandler =
@@ -85,6 +97,7 @@ export type SparkRule =
   | SparkAsRule
   | SparkIdentityRule
   | SparkReturnRule
+  | SparkGroupAggRule
 
 export interface SparkJoinRule {
   kind: "SparkJoinRule";
@@ -120,11 +133,37 @@ export interface SparkReturnRule {
   name: string;
 }
 
+export interface SparkGroupAggRule {
+  kind: "SparkGroupAggRule";
+  name: string;
+  dataset: string;
+  groupColumn: string;
+  aggregations: SparkAggregation[];
+}
+
+export type SparkAggregation =
+  | SparkCollectListAggregation
+  | SparkSqlAggregation
+
+export interface SparkCollectListAggregation {
+  kind: "SparkCollectListAggregation";
+  name: string;
+  columns: string[];
+}
+
+export interface SparkSqlAggregation {
+  kind: "SparkSqlAggregation";
+  func: "sum" | "count" | "max" | "min";
+  name: string;
+  column: string;
+}
+
 export type SparkMapTransformation =
   | SparkRowExtractTransformation
   | SparkApplicationTransformation
   | SparkIdentityTransformation
   | SparkBinaryOperationTransformation
+  | SparkGetOrElseTransformation
 
 export interface SparkRowExtractTransformation {
   kind: "SparkRowExtractTransformation";
@@ -152,6 +191,13 @@ export interface SparkBinaryOperationTransformation {
   right: string;
 }
 
+export interface SparkGetOrElseTransformation {
+  kind: "SparkGetOrElseTransformation";
+  name: string;
+  left: string;
+  right: string;
+}
+
 export interface SparkDependencyVertex {
   kind: "SparkDependencyVertex";
   id: number;
@@ -162,6 +208,7 @@ export interface SparkDependencyVertex {
 
 export interface SparkProject {
   kind: "SparkProject";
+  implicitCaseClasses: ScalaCaseClass[];
   types: SparkType[];
   vertices: SparkDependencyVertex[];
   name: string;

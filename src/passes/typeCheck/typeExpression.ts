@@ -1,5 +1,5 @@
-import { booleanType, fkType, floatType, ForeignKeyType, IdentifierType, identifierType, integerType, objectType, ObjectType, pkType, PrimaryKeyType, stringType, Type } from "../../asts/type";
-import { TypedIntegerTypeExpression, TypedObjectTypeExpression, TypedStringTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../../asts/typeExpression/typed";
+import { arrayType, booleanType, fkType, floatType, ForeignKeyType, functionType, IdentifierType, identifierType, integerType, objectType, ObjectType, optionalType, pkType, PrimaryKeyType, stringType, Type, unionType } from "../../asts/type";
+import { TypedAggProperty, TypedIntegerTypeExpression, TypedJoinTypeExpression, TypedObjectTypeExpression, TypedRuleProperty, TypedStringTypeExpression, TypedTypeExpression, TypedTypeIntroExpression } from "../../asts/typeExpression/typed";
 import { LinearJoinTypeExpression, LinearTypeExpression, LinearTypeIntroExpression } from "../../asts/typeExpression/linear";
 import { throws, print } from "../../utils";
 import { Context, typeEquals } from "./utils";
@@ -13,20 +13,40 @@ function resolve(name: string, ctx: Context): Exclude<Type, IdentifierType> {
 }
 
 function mergeObjectTypes(...types: ObjectType[]): ObjectType {
-  const props = new Set<string>();
+  const props = new Map<string, number>();
   const properties: ObjectType['properties'] = [];
 
   types.forEach(type => type.properties.forEach(prop => {
-    if (props.has(prop.name))
-      throws(`Property ${prop.name} is already defined in object type merge`);
-    props.add(prop.name);
-    properties.push(prop);
+    if (props.has(prop.name)) {
+      properties[props.get(prop.name)!] = prop;
+    }
+    else {
+      properties.push(prop);
+    }
+    props.set(prop.name, properties.length);
   }));
 
   return {
     kind: "ObjectType",
     properties,
   };
+}
+
+function makeOptional(t: ObjectType): ObjectType {
+  return objectType(...t.properties.map(x => ({ name: x.name, type: optionalType(x.type) })));
+}
+
+function mergeJoinTypes(type: TypedJoinTypeExpression['type'], l: ObjectType, r: ObjectType): ObjectType {
+  switch (type) {
+    case 'inner':
+      return mergeObjectTypes(l, r);
+    case 'left':
+      return mergeObjectTypes(l, makeOptional(r));
+    case 'right':
+      return mergeObjectTypes(makeOptional(l), r);
+    case 'outer':
+      return mergeObjectTypes(makeOptional(l), makeOptional(r));
+  }
 }
 
 function makeNewNamedType(ty: ObjectType, ctx: Context): [IdentifierType, Context] {
@@ -179,7 +199,7 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
       const [right, ctx2] = typeCheckTypeExpression(e.right, ctx1);
       const [leftColumn, rightColumn] = checkJoinRelation(left, right, [e.leftColumn, e.rightColumn]);
 
-      const deepTypeValue = mergeObjectTypes(left.deepTypeValue as ObjectType, right.deepTypeValue as ObjectType);
+      const deepTypeValue = mergeJoinTypes(e.type, left.deepTypeValue as ObjectType, right.deepTypeValue as ObjectType);
       const [shallowTypeValue, ctx3] = lookupShallowType(deepTypeValue, ctx2);
 
       return [{
@@ -216,9 +236,32 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
 
       const ectx: Context = Object.fromEntries(left.deepTypeValue.properties.map(x => [x.name, x.type]));
 
-      const rules = e.rules.map(r => ({ name: r.name, value: typeCheckExpression(r.value, ectx)[0] }));
+      // TODO: maybe use a reduce if we want it to be more like let*
+      const rules = e.rules.map<TypedRuleProperty>(r => {
+        switch (r.kind) {
+          case 'LinearRuleTypeProperty':
+            return {
+              kind: "TypedRuleTypeProperty",
+              name: r.name,
+              value: typeCheckTypeExpression(r.value, ctx)[0],
+            };
+          case 'LinearRuleValueProperty':
+            return {
+              kind: "TypedRuleValueProperty",
+              name: r.name,
+              value: typeCheckExpression(r.value, ectx)[0],
+            };
+        }
+      });
 
-      const deepTypeValue = mergeObjectTypes(left.deepTypeValue, objectType(...rules.map(x => ({ name: x.name, type: x.value.type }))));
+      const deepTypeValue = mergeObjectTypes(left.deepTypeValue, objectType(...rules.map(r => {
+        switch (r.kind) {
+          case 'TypedRuleTypeProperty':
+            return { name: r.name, type: r.value.deepTypeValue };
+          case 'TypedRuleValueProperty':
+            return { name: r.name, type: r.value.type };
+        }
+      })));
       const [shallowTypeValue, ctx2] = lookupShallowType(deepTypeValue, ctx1);
 
       return [{
@@ -231,6 +274,81 @@ export function typeCheckTypeExpression(e: LinearTypeExpression, ctx: Context): 
     }
     case "LinearUnionTypeExpression": {
       throws(`TODO typeCheckTypeExpression:LinearUnionTypeExpression`);
+    }
+    case 'LinearArrayTypeExpression': {
+      const [of] = typeCheckTypeExpression(e.of, ctx);
+
+      const shallowTypeValue = arrayType(of.shallowTypeValue);
+      const deepTypeValue = arrayType(of.deepTypeValue);
+
+      return [{ kind: "TypedArrayTypeExpression", of, shallowTypeValue, deepTypeValue }, ctx];
+    }
+    case "LinearGroupByTypeExpression": {
+      const [left] = typeCheckTypeExpression(e.left, ctx);
+
+      if (left.deepTypeValue.kind !== 'ObjectType')
+        throws(`Error: Left side of group by expression needs to have an object type`);
+
+      if (!hasProperty(left.deepTypeValue, e.column))
+        throws(`Error: Cannot group by ${e.column} since it in not on the left side object`);
+
+      const ectx: Context = {
+        ...Object.fromEntries(left.deepTypeValue.properties.map(x => [x.name, x.type])),
+        this: left.deepTypeValue,
+        collect: unionType(
+          functionType([integerType()], arrayType(integerType())),
+          functionType([floatType()], arrayType(floatType())),
+          functionType([stringType()], arrayType(stringType())),
+          functionType([booleanType()], arrayType(booleanType())),
+          functionType([left.deepTypeValue], arrayType(left.deepTypeValue)),
+        ),
+        sum: unionType(
+          functionType([integerType()], integerType()),
+          functionType([floatType()], floatType()),
+        ),
+        count: unionType(
+          functionType([integerType()], integerType()),
+          functionType([floatType()], integerType()),
+          functionType([stringType()], integerType()),
+          functionType([booleanType()], integerType()),
+        ),
+        max: unionType(
+          functionType([integerType()], integerType()),
+          functionType([floatType()], floatType()),
+        ),
+        min: unionType(
+          functionType([integerType()], integerType()),
+          functionType([floatType()], floatType()),
+        ),
+      };
+
+      const aggregations = e.aggregations.map<TypedAggProperty>(p => {
+        switch (p.kind) {
+          case 'LinearAggProperty':
+            return {
+              kind: "TypedAggProperty",
+              name: p.name,
+              value: typeCheckExpression(p.value, ectx)[0],
+            };
+        }
+      });
+
+      const deepTypeValue = mergeObjectTypes(left.deepTypeValue, objectType(...aggregations.map(p => {
+        switch (p.kind) {
+          case 'TypedAggProperty':
+            return { name: p.name, type: p.value.type };
+        }
+      })));
+      const [shallowTypeValue, ctx1] = lookupShallowType(deepTypeValue, ctx);
+
+      return [{
+        kind: "TypedGroupByTypeExpression",
+        left,
+        column: e.column,
+        aggregations,
+        shallowTypeValue,
+        deepTypeValue,
+      }, ctx1];
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Type } from "../type";
+import { ArrayType, Type } from "../type";
 import { Parameter } from "./parameter";
 
 export type TypedExpression =
@@ -13,6 +13,8 @@ export type TypedExpression =
   | TypedBlockExpression
   | TypedApplicationExpression
   | TypedAddExpression
+  | TypedDefaultExpression
+  | TypedArrayExpression
 
 export interface TypedLetExpression {
   kind: "TypedLetExpression";
@@ -84,4 +86,18 @@ export interface TypedAddExpression {
   op: "+";
   right: TypedExpression;
   type: Type;
+}
+
+export interface TypedDefaultExpression {
+  kind: "TypedDefaultExpression";
+  left: TypedExpression;
+  op: "??";
+  right: TypedExpression;
+  type: Type;
+}
+
+export interface TypedArrayExpression {
+  kind: "TypedArrayExpression";
+  values: TypedExpression[];
+  type: ArrayType;
 }

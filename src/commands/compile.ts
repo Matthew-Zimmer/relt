@@ -14,10 +14,36 @@ import { typeCheckAllExpressions } from "../passes/typeCheck/expression";
 import { evaluateAllExpressions } from "../passes/evaluate";
 import { readDefaultedReltProject, ReltProject } from "../project";
 import { existsSync } from "fs";
-import { block, line, nl } from "../asts/line";
+import { block, Line, line, nl } from "../asts/line";
 import { SparkProject } from "../asts/scala";
+import { generateAllSourceCodeLinear, generateAllSourceCodeTyped, generateAllSourceCodeUntyped } from "../debug/debug";
 
-export async function compile() {
+export interface CompileArgs {
+  "developer-mode": boolean;
+}
+
+async function prepareDeveloperDirectories() {
+  if (!existsSync('out'))
+    await mkdir('out');
+  if (existsSync('out/developer'))
+    await rm('out/developer', { recursive: true });
+  await mkdir('out/developer', { recursive: true });
+}
+
+async function writeDeveloperLog<T>(fileName: string, e: T[], f: (x: T[]) => Line[]) {
+  const lines = f(e);
+  // await writeDeveloperAst(fileName + '.json', lines);
+  return writeFile(fileName, generateLines(lines));
+}
+
+async function writeDeveloperAst(fileName: string, x: any) {
+  return writeFile(fileName, JSON.stringify(x, undefined, 2));
+}
+
+export async function compile(args: CompileArgs) {
+  if (args["developer-mode"])
+    await prepareDeveloperDirectories();
+
   const reltProject = await readDefaultedReltProject();
 
   const fileName = `${reltProject.srcDir}/${reltProject.mainFile}`;
@@ -29,6 +55,12 @@ export async function compile() {
   const module = parser.parse(fileContent);
   const topLevelExpressions: TopLevelExpression[] = module.expressions;
 
+  if (args["developer-mode"]) {
+    console.log(`Writing developer untyped checkpoint`);
+    await writeDeveloperAst(`out/developer/untyped-ast.json`, topLevelExpressions);
+    await writeDeveloperLog(`out/developer/untyped.txt`, topLevelExpressions, generateAllSourceCodeUntyped);
+  }
+
   const expressions = topLevelExpressions.filter(x => x.kind !== 'TypeIntroExpression') as Expression[];
 
   const [typedExpressions, ectx] = typeCheckAllExpressions(expressions);
@@ -38,9 +70,19 @@ export async function compile() {
 
   const linearNamedTypeExpressions = namedTypeExpressions.flatMap(linearize) as LinearTypeIntroExpression[];
 
+  if (args["developer-mode"]) {
+    console.log(`Writing developer linear checkpoint`);
+    await writeDeveloperLog(`out/developer/linear.txt`, [expressions, linearNamedTypeExpressions].flat(), generateAllSourceCodeLinear);
+  }
+
   const dependencyGraph = namedTypeDependencyGraph(linearNamedTypeExpressions);
 
   const [typedNamedTypeExpressions, tctx] = typeCheckAllTypeExpressions(linearNamedTypeExpressions);
+
+  if (args["developer-mode"]) {
+    console.log(`Writing developer typed checkpoint`);
+    await writeDeveloperLog(`out/developer/typed.txt`, [typedExpressions, typedNamedTypeExpressions].flat(), generateAllSourceCodeTyped);
+  }
 
   const sparkProject = deriveSparkProject(reltProject, typedNamedTypeExpressions, ectx, scope, dependencyGraph);
 
