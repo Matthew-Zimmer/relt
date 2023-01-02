@@ -5,6 +5,8 @@ import { throws, print } from "../../utils";
 import { Context, typeEquals } from "./utils";
 import { typeCheckExpression } from "./expression";
 import { TypedIdentifierExpression } from "../../asts/expression/typed";
+import { Id } from "../../asts/typeExpression/util";
+import { typeName } from "../evaluate";
 
 function resolve(name: string, ctx: Context): Exclude<Type, IdentifierType> {
   if (!(name in ctx))
@@ -112,198 +114,261 @@ export function isTypeIdentifierOf<K extends Type['kind']>(e: TypedTypeExpressio
   return e.kind === 'TypedIdentifierTypeExpression' && e.type.kind === kind;
 }
 
-export function typeCheckTypeExpression(e: FlatTypeExpression, ctx: Context): [TypedTypeExpression, Context] {
-  switch (e.kind) {
-    case "FlatIntegerTypeExpression": {
-      return [{ kind: "TypedIntegerTypeExpression", type: integerType() }, ctx];
-    }
-    case "FlatFloatTypeExpression": {
-      return [{ kind: "TypedFloatTypeExpression", type: floatType() }, ctx];
-    }
-    case "FlatBooleanTypeExpression": {
-      return [{ kind: "TypedBooleanTypeExpression", type: booleanType() }, ctx];
-    }
-    case "FlatStringTypeExpression": {
-      return [{ kind: "TypedStringTypeExpression", type: stringType() }, ctx];
-    }
-    case "FlatPrimaryKeyTypeExpression": {
-      const of = typeCheckTypeExpression(e.of, ctx)[0] as TypedIntegerTypeExpression | TypedStringTypeExpression;
-      return [{ kind: "TypedPrimaryKeyTypeExpression", of, type: pkType(of.type) }, ctx];
-    }
-    case "FlatForeignKeyTypeExpression": {
-      if (!(e.table in ctx))
-        throws(`Error: unknown type ${e.table}`);
+const expressionTypeMap = new Map<Id, Type>();
 
-      const ty = ctx[e.table];
-
-      if (ty.kind !== 'ObjectType')
-        throws(`Error: ${e.table} is not an object`);
-
-      const prop = ty.properties.find(x => x.name === e.column);
-
-      if (prop === undefined)
-        throws(`Error: ${e.table} does not contain property ${e.column}`);
-
-      if (prop.type.kind !== "IntegerType" && prop.type.kind !== 'StringType' && prop.type.kind !== 'PrimaryKeyType' && prop.type.kind !== 'ForeignKeyType')
-        throws(`Error: Cannot have a foreign key to a non integer or string field`);
-
-      const tyv = fkType(e.table, e.column, prop.type);
-
-      return [{ kind: "TypedForeignKeyTypeExpression", table: e.table, column: e.column, type: tyv }, ctx];
-    }
-    case "FlatObjectTypeExpression": {
-      const properties = e.properties.map(x => ({ name: x.name, value: typeCheckTypeExpression(x.value, ctx)[0] }));
-
-      return [{
-        kind: "TypedObjectTypeExpression",
-        properties,
-        type: objectType(...properties.map(x => ({ name: x.name, type: x.value.type }))),
-      }, ctx];
-    }
-
-    case "FlatIdentifierTypeExpression": {
-      return [{ kind: "TypedIdentifierTypeExpression", name: e.name, type: resolve(e.name, ctx) }, ctx];
-    }
-    case "FlatTypeIntroExpression": {
-      const [value] = typeCheckTypeExpression(e.value, ctx);
-      return [{ kind: "TypedTypeIntroExpression", name: e.name, value, type: value.type }, { ...ctx, [e.name]: value.type }];
-    }
-    case "FlatJoinTypeExpression": {
-      const [left] = typeCheckTypeExpression(e.left, ctx);
-      const [right] = typeCheckTypeExpression(e.right, ctx);
-
-      if (!isTypeIdentifierOf(left, 'ObjectType'))
-        throws(`Bad Identifier Type`);
-      if (!isTypeIdentifierOf(right, 'ObjectType'))
-        throws(`Bad Identifier Type`);
-
-      const [leftColumn, rightColumn] = checkJoinRelation(left.type, right.type, [e.leftColumn, e.rightColumn], ctx);
-
-      const type = mergeJoinTypes(e.method, left.type, right.type, rightColumn);
-
-      return [{
-        kind: "TypedJoinTypeExpression",
-        left,
-        right,
-        leftColumn,
-        rightColumn,
-        type,
-        method: e.method,
-      }, ctx];
-    }
-    case "FlatDropTypeExpression": {
-      const [left] = typeCheckTypeExpression(e.left, ctx);
-
-      if (!isTypeIdentifierOf(left, 'ObjectType'))
-        throws(`Bad Identifier Type`);
-
-      return [{
-        kind: "TypedDropTypeExpression",
-        left,
-        properties: e.properties,
-        type: removeProperties(left.type, e.properties),
-      }, ctx];
-    }
-    case "FlatWithTypeExpression": {
-      const [left] = typeCheckTypeExpression(e.left, ctx);
-
-      if (!isTypeIdentifierOf(left, 'ObjectType'))
-        throws(`Bad Identifier Type`);
-
-      const ectx: Context = Object.fromEntries(left.type.properties.map(x => [x.name, x.type]));
-
-      // TODO: maybe use a reduce if we want it to be more like let*
-      const rules = e.rules.map<NamedTypedExpression>(r => {
-        return {
-          name: r.name,
-          value: typeCheckExpression(r.value, ectx)[0],
-        };
-      });
-
-      const type = mergeObjectTypes(left.type, objectType(...rules.map(r => {
-        return { name: r.name, type: r.value.type };
-      })));
-
-      return [{
-        kind: "TypedWithTypeExpression",
-        left,
-        rules,
-        type,
-      }, ctx];
-    }
-    case "FlatUnionTypeExpression": {
-      throws(`TODO typeCheckTypeExpression:FlatUnionTypeExpression`);
-    }
-    case 'FlatArrayTypeExpression': {
-      const [of] = typeCheckTypeExpression(e.of, ctx);
-
-      return [{ kind: "TypedArrayTypeExpression", of, type: arrayType(of.type) }, ctx];
-    }
-    case "FlatGroupByTypeExpression": {
-      const [left] = typeCheckTypeExpression(e.left, ctx);
-
-      if (!isTypeIdentifierOf(left, 'ObjectType'))
-        throws(`Bad Identifier Type`);
-
-      if (!hasProperty(left.type, e.column))
-        throws(`Error: Cannot group by ${e.column} since it in not on the left side object`);
-
-      const ectx: Context = {
-        ...Object.fromEntries(left.type.properties.map(x => [x.name, x.type])),
-        this: left.type,
-        collect: unionType(
-          functionType([integerType()], arrayType(integerType())),
-          functionType([floatType()], arrayType(floatType())),
-          functionType([stringType()], arrayType(stringType())),
-          functionType([booleanType()], arrayType(booleanType())),
-          functionType([left.type], arrayType(left.type)),
-        ),
-        sum: unionType(
-          functionType([integerType()], integerType()),
-          functionType([floatType()], floatType()),
-        ),
-        count: unionType(
-          functionType([integerType()], integerType()),
-          functionType([floatType()], integerType()),
-          functionType([stringType()], integerType()),
-          functionType([booleanType()], integerType()),
-        ),
-        max: unionType(
-          functionType([integerType()], integerType()),
-          functionType([floatType()], floatType()),
-        ),
-        min: unionType(
-          functionType([integerType()], integerType()),
-          functionType([floatType()], floatType()),
-        ),
-      };
-
-      const aggregations = e.aggregations.map(p => {
-        return {
-          name: p.name,
-          value: typeCheckExpression(p.value, ectx)[0],
-        };
-      });
-
-      const type = mergeObjectTypes(objectType({ name: e.column, type: left.type.properties.find(x => x.name === e.column)!.type }), objectType(...aggregations.map(p => {
-        return { name: p.name, type: p.value.type };
-      })));
-
-      return [{
-        kind: "TypedGroupByTypeExpression",
-        left,
-        column: e.column,
-        aggregations,
-        type,
-      }, ctx];
-    }
-  }
+export function lookupExpressionTypeById(id: Id): Type {
+  const ty = expressionTypeMap.get(id);
+  if (ty === undefined)
+    throws(`Internal Error: Cannot lookup the type for expression with id ${id}`);
+  return ty;
 }
 
-export function typeCheckAllTypeExpressions(flatTypeExpressions: FlatTypeIntroExpression[]): [TypedTypeIntroExpression[], Context] {
-  return flatTypeExpressions.reduce<[TypedTypeIntroExpression[], Context]>(([a, c], e) => {
-    const [e1, c1] = typeCheckTypeExpression(e, c) as [TypedTypeIntroExpression, Context];
-    return [[...a, e1], c1];
-  }, [[], {}]);
+export function setExprType(id: Id, ty: Type) {
+  if (expressionTypeMap.has(id) && !typeEquals(ty, expressionTypeMap.get(id)!))
+    throws(`Internal Error: Cannot set the type for expression with id ${id} already defined old ${typeName(expressionTypeMap.get(id)!)} new ${typeName(ty)}`);
+  expressionTypeMap.set(id, ty);
+}
+
+export function ensure<K extends Type['kind']>(ty: Type, kind: K): Type & { kind: K } {
+  if (ty.kind !== kind) throws(`Internal Error: Expected ${kind} got ${ty.kind}`);
+  return ty as Type & { kind: K };
+}
+
+export function typeCheckTypeExpression(e: FlatTypeExpression, ctx: Context, id: Id): [TypedTypeExpression, Context, Id] {
+  let idCount = id;
+  const typeCheck = (e: FlatTypeExpression, ctx: Context): [TypedTypeExpression, Context] => {
+    switch (e.kind) {
+      case "FlatIntegerTypeExpression": {
+        const type = integerType();
+        return [{ kind: "TypedIntegerTypeExpression", type, id: e.id }, ctx];
+      }
+      case "FlatFloatTypeExpression": {
+        const type = floatType();
+        setExprType(e.id, type);
+        return [{ kind: "TypedFloatTypeExpression", type, id: e.id }, ctx];
+      }
+      case "FlatBooleanTypeExpression": {
+        const type = booleanType();
+        setExprType(e.id, type);
+        return [{ kind: "TypedBooleanTypeExpression", type, id: e.id }, ctx];
+      }
+      case "FlatStringTypeExpression": {
+        const type = stringType();
+        setExprType(e.id, type);
+        return [{ kind: "TypedStringTypeExpression", type, id: e.id }, ctx];
+      }
+      case "FlatPrimaryKeyTypeExpression": {
+        const of = typeCheck(e.of, ctx)[0] as TypedIntegerTypeExpression | TypedStringTypeExpression;
+        const type = pkType(of.type);
+        setExprType(e.id, type);
+        return [{ kind: "TypedPrimaryKeyTypeExpression", of, type, id: e.id }, ctx];
+      }
+      case "FlatForeignKeyTypeExpression": {
+        if (!(e.table in ctx))
+          throws(`Error: unknown type ${e.table}`);
+
+        const ty = ctx[e.table];
+
+        if (ty.kind !== 'ObjectType')
+          throws(`Error: ${e.table} is not an object`);
+
+        const prop = ty.properties.find(x => x.name === e.column);
+
+        if (prop === undefined)
+          throws(`Error: ${e.table} does not contain property ${e.column}`);
+
+        if (prop.type.kind !== "IntegerType" && prop.type.kind !== 'StringType' && prop.type.kind !== 'PrimaryKeyType' && prop.type.kind !== 'ForeignKeyType')
+          throws(`Error: Cannot have a foreign key to a non integer or string field`);
+
+        const tyv = fkType(e.table, e.column, prop.type);
+
+        setExprType(e.id, tyv);
+
+        return [{ kind: "TypedForeignKeyTypeExpression", table: e.table, column: e.column, type: tyv, id: e.id }, ctx];
+      }
+      case "FlatObjectTypeExpression": {
+        const properties = e.properties.map(x => ({ name: x.name, value: typeCheck(x.value, ctx)[0] }));
+
+        const type = objectType(...properties.map(x => ({ name: x.name, type: x.value.type })));
+        setExprType(e.id, type);
+
+        return [{
+          kind: "TypedObjectTypeExpression",
+          properties,
+          type,
+          id: e.id,
+        }, ctx];
+      }
+
+      case "FlatIdentifierTypeExpression": {
+        const type = resolve(e.name, ctx);
+        setExprType(e.id, type);
+        return [{ kind: "TypedIdentifierTypeExpression", name: e.name, type, id: e.id }, ctx];
+      }
+      case "FlatTypeIntroExpression": {
+        const [value] = typeCheck(e.value, ctx);
+        const type = value.type;
+        setExprType(e.id, type);
+        return [{ kind: "TypedTypeIntroExpression", name: e.name, value, type, id: e.id }, { ...ctx, [e.name]: value.type }];
+      }
+      case "FlatJoinTypeExpression": {
+        const [left] = typeCheck(e.left, ctx);
+        const [right] = typeCheck(e.right, ctx);
+
+        if (!isTypeIdentifierOf(left, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+        if (!isTypeIdentifierOf(right, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+
+        const [leftColumn, rightColumn] = checkJoinRelation(left.type, right.type, [e.leftColumn, e.rightColumn], ctx);
+
+        const type = mergeJoinTypes(e.method, left.type, right.type, rightColumn);
+        setExprType(e.id, type);
+
+        return [{
+          kind: "TypedJoinTypeExpression",
+          left,
+          right,
+          leftColumn,
+          rightColumn,
+          type,
+          method: e.method,
+          id: e.id,
+        }, ctx];
+      }
+      case "FlatDropTypeExpression": {
+        const [left] = typeCheck(e.left, ctx);
+
+        if (!isTypeIdentifierOf(left, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+
+        const type = removeProperties(left.type, e.properties)
+        setExprType(e.id, type);
+
+        return [{
+          kind: "TypedDropTypeExpression",
+          left,
+          properties: e.properties,
+          type,
+          id: e.id,
+        }, ctx];
+      }
+      case "FlatWithTypeExpression": {
+        const [left] = typeCheck(e.left, ctx);
+
+        if (!isTypeIdentifierOf(left, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+
+        const ectx: Context = Object.fromEntries(left.type.properties.map(x => [x.name, x.type]));
+
+        // TODO: maybe use a reduce if we want it to be more like let*
+        const rules = e.rules.map<NamedTypedExpression>(r => {
+          return {
+            name: r.name,
+            value: typeCheckExpression(r.value, ectx)[0],
+          };
+        });
+
+        const type = mergeObjectTypes(left.type, objectType(...rules.map(r => {
+          return { name: r.name, type: r.value.type };
+        })));
+        setExprType(e.id, type);
+
+        return [{
+          kind: "TypedWithTypeExpression",
+          left,
+          rules,
+          type,
+          id: e.id,
+        }, ctx];
+      }
+      case "FlatUnionTypeExpression": {
+        throws(`TODO typeCheckTypeExpression:FlatUnionTypeExpression`);
+      }
+      case 'FlatArrayTypeExpression': {
+        const [of] = typeCheck(e.of, ctx);
+        const type = arrayType(of.type)
+        setExprType(e.id, type);
+
+        return [{ kind: "TypedArrayTypeExpression", of, type, id: e.id }, ctx];
+      }
+      case "FlatGroupByTypeExpression": {
+        const [left] = typeCheck(e.left, ctx);
+
+        if (!isTypeIdentifierOf(left, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+
+        const column: string = typeof e.column === 'string' ? e.column : checkJoinRelation(
+          ensure(lookupExpressionTypeById(e.column[0]), 'ObjectType'),
+          ensure(lookupExpressionTypeById(e.column[1]), 'ObjectType'),
+          [undefined, undefined],
+          ctx,
+        )[1];
+
+        if (!hasProperty(left.type, column))
+          throws(`Error: Cannot group by ${e.column} since it in not on the left side object`);
+
+        const ectx: Context = {
+          ...Object.fromEntries(left.type.properties.map(x => [x.name, x.type])),
+          this: left.type,
+          collect: unionType(
+            functionType([integerType()], arrayType(integerType())),
+            functionType([floatType()], arrayType(floatType())),
+            functionType([stringType()], arrayType(stringType())),
+            functionType([booleanType()], arrayType(booleanType())),
+            functionType([left.type], arrayType(left.type)),
+          ),
+          sum: unionType(
+            functionType([integerType()], integerType()),
+            functionType([floatType()], floatType()),
+          ),
+          count: unionType(
+            functionType([integerType()], integerType()),
+            functionType([floatType()], integerType()),
+            functionType([stringType()], integerType()),
+            functionType([booleanType()], integerType()),
+          ),
+          max: unionType(
+            functionType([integerType()], integerType()),
+            functionType([floatType()], floatType()),
+          ),
+          min: unionType(
+            functionType([integerType()], integerType()),
+            functionType([floatType()], floatType()),
+          ),
+        };
+
+        const aggregations = e.aggregations.map(p => {
+          return {
+            name: p.name,
+            value: typeCheckExpression(p.value, ectx)[0],
+          };
+        });
+
+        const type = mergeObjectTypes(objectType({ name: column, type: left.type.properties.find(x => x.name === column)!.type }), objectType(...aggregations.map(p => {
+          return { name: p.name, type: p.value.type };
+        })));
+        setExprType(e.id, type);
+
+        return [{
+          kind: "TypedGroupByTypeExpression",
+          left,
+          column,
+          aggregations,
+          type,
+          id: e.id,
+        }, ctx];
+      }
+    }
+  }
+
+  return [...typeCheck(e, ctx), idCount];
+}
+
+export function typeCheckAllTypeExpressions(flatTypeExpressions: FlatTypeIntroExpression[], id: Id): [TypedTypeIntroExpression[], Context, Id] {
+  return flatTypeExpressions.reduce<[TypedTypeIntroExpression[], Context, Id]>(([a, c, id], e) => {
+    const [e1, c1, id1] = typeCheckTypeExpression(e, c, id) as [TypedTypeIntroExpression, Context, Id];
+    return [[...a, e1], c1, id1];
+  }, [[], {}, id]);
 }
 

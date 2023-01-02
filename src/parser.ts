@@ -45,7 +45,7 @@ export const parser = generate(`
 
   rule_property
     = rule_value_property
-//    / rule_type_property
+    / rule_type_property
 
   rule_value_property
     = name: identifier _ "=" _ value: expression
@@ -86,7 +86,6 @@ export const parser = generate(`
   type_expression_2
     = array_type_expression
     / type_intro_expression
-    / literal_type_expression
 
   array_type_expression
     = head:literal_type_expression tail:(_ "[" _ "]" { return {
