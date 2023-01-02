@@ -265,7 +265,23 @@ export function flattenTypeExpressions(e: TypeExpression[], id: Id): [PrimitiveF
         ];
       }
       case "UnionTypeExpression":
-        throw 'TODO';
+        const [lName, lId, left] = namedFlatten(e.left);
+        const [rName, rId, right] = namedFlatten(e.right);
+        return [
+          ...left,
+          ...right,
+          {
+            kind: "FlatTypeIntroExpression",
+            id: idCount++,
+            name: `SubStep_${lName}Union${rName}`,
+            value: {
+              kind: "FlatUnionTypeExpression",
+              id: e.id,
+              left: { kind: "FlatIdentifierTypeExpression", name: lName, id: lId, },
+              right: { kind: "FlatIdentifierTypeExpression", name: rName, id: rId, },
+            }
+          },
+        ];
       case "TypeIntroExpression": {
         const values = flatten(e.value);
         if (values.length === 0)

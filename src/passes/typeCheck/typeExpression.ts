@@ -283,7 +283,27 @@ export function typeCheckTypeExpression(e: FlatTypeExpression, ctx: Context, id:
         }, ctx];
       }
       case "FlatUnionTypeExpression": {
-        throws(`TODO typeCheckTypeExpression:FlatUnionTypeExpression`);
+        const [left] = typeCheck(e.left, ctx);
+        const [right] = typeCheck(e.right, ctx);
+
+        if (!isTypeIdentifierOf(left, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+        if (!isTypeIdentifierOf(right, 'ObjectType'))
+          throws(`Bad Identifier Type`);
+
+        if (!typeEquals(left.type, right.type))
+          throws(`Error: Union left and right type must match`);
+
+        const type = left.type;
+        setExprType(e.id, type);
+
+        return [{
+          kind: "TypedUnionTypeExpression",
+          left,
+          right,
+          type,
+          id: e.id,
+        }, ctx];
       }
       case 'FlatArrayTypeExpression': {
         const [of] = typeCheck(e.of, ctx);

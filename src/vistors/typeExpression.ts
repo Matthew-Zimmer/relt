@@ -20,6 +20,9 @@ export function visitTypeExpression<T>(e: TypeExpression, visitor: Visitor<TypeE
           break;
         case "JoinTypeExpression":
         case "UnionTypeExpression":
+          _visit(e.left);
+          _visit(e.right);
+          break;
         case "WithTypeExpression":
           _visit(e.left);
           break;

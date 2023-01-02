@@ -530,6 +530,10 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
       return derivedHandler([h.leftInput, h.rightInput], [
         line(`ds0.join(ds1, col("${h.leftColumn}") === col("${h.rightColumn}"), "${h.method}").as[${h.output.name}]`)
       ]);
+    case "SparkUnionDatasetHandler":
+      return derivedHandler([h.leftInput, h.rightInput], [
+        line(`ds0.union(ds1).as[${h.output.name}]`)
+      ]);
     case "SparkDropDatasetHandler":
       return derivedHandler([h.input], [
         line(`ds0.drop(${h.properties.map(x => `"${x}"`).join(', ')}).as[${h.output.name}]`),

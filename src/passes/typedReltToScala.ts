@@ -760,7 +760,12 @@ export function deriveSparkProject(
           ],
         }];
       case "TypedUnionTypeExpression":
-        throws(`TODO`);
+        return [{
+          kind: "SparkUnionDatasetHandler",
+          leftInput: datasetIdFor(v.left.name),
+          rightInput: datasetIdFor(v.right.name),
+          output: datasetIdFor(e.name),
+        }];
       case "TypedGroupByTypeExpression":
         return [{
           kind: "SparkGroupDatasetHandler",

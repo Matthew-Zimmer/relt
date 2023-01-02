@@ -176,7 +176,11 @@ export function generateTypeExpressionUntyped(e: TypeExpression): Line[] {
         line('}')
       ];
     case "UnionTypeExpression":
-      throws(`TODO`);
+      return [
+        ...generateTypeExpressionUntyped(e.left),
+        line(`union`),
+        ...generateTypeExpressionUntyped(e.right),
+      ];
     case "TypeIntroExpression":
       return [
         line(`type ${e.name} = `),
@@ -304,7 +308,11 @@ export function generateTypeExpressionFlat(e: FlatTypeExpression): Line[] {
         line('}')
       ];
     case "FlatUnionTypeExpression":
-      throws(`TODO`);
+      return [
+        ...generateTypeExpressionFlat(e.left),
+        line(`union`),
+        ...generateTypeExpressionFlat(e.right),
+      ];
     case "FlatTypeIntroExpression":
       return [
         line(`type ${e.name} = `),
@@ -513,7 +521,11 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
         line('}')
       ];
     case "TypedUnionTypeExpression":
-      throws(`TODO`);
+      return [
+        ...generateTypeExpressionTyped(e.left),
+        line(`union`),
+        ...generateTypeExpressionTyped(e.right),
+      ];
     case "TypedTypeIntroExpression":
       return [
         line(`type ${e.name} = `),

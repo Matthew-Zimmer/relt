@@ -16,26 +16,24 @@ type Person = {
   lastName: string,
 }
 
-type Sale = {
-  # date: date,
-  personId: fk Person.id,
-  customerName: string,
-  amountDollars: float,
+type Person2 = {
+  id: pk int,
+  firstName: string,
+} with {
+  lastName = firstName
 }
 
-# type PersonSale = Person left join (Sale group by personId agg {
-#   sales = collect(this),
-#   dollars = sum(amountDollars),
-# }) with {
-#   sales = sales ?? [],
-#   dollars = dollars ?? 0.0,
+# type Sale = {
+#   # date: date,
+#   personId: fk Person.id,
+#   customerName: string,
+#   amountDollars: float,
 # }
 
-type PersonSale = Person with {
-  sales: Sale[],
-}
+type PUP = Person union Person2
 
 func source(t: Person) { connection + { table: "person" } } 
+func source(t: Person2) { connection + { table: "person" } } 
 func source(t: Sale) { connection + { table: "sale" } }
 
 # func destination(t: PersonSale) { connection } 

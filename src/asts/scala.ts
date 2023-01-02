@@ -220,6 +220,7 @@ export type SparkDatasetHandler =
   | SparkDropDatasetHandler
   | SparkMapDatasetHandler
   | SparkGroupDatasetHandler
+  | SparkUnionDatasetHandler
 
 export interface DatasetId {
   name: string;
@@ -245,6 +246,13 @@ export interface SparkJoinDatasetHandler {
   leftColumn: string;
   rightColumn: string;
   method: string;
+}
+
+export interface SparkUnionDatasetHandler {
+  kind: "SparkUnionDatasetHandler";
+  leftInput: DatasetId;
+  rightInput: DatasetId;
+  output: DatasetId;
 }
 
 export interface SparkDropDatasetHandler {

@@ -22,4 +22,4 @@
 - [ ] Dependency Graph Visualization (Documentation)
 - [ ] Local env testing
 - [ ] Checked constraints
-- [ ] Union type expressions
+- [x] Union type expressions

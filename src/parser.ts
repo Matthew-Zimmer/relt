@@ -30,7 +30,14 @@ export const parser = generate(`
     { return { kind: "TypeIntroExpression", name, value } }
 
   type_expression
-    = with_type_expression
+    = union_type_expression
+
+  union_type_expression
+    = head:with_type_expression tail:(_ "union" _ right: with_type_expression { return {
+        kind: 'UnionTypeExpression',
+        right,
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   with_type_expression
     = head:drop_type_expression tail:(_ "with" _ rules: rule_properties _ { return {
