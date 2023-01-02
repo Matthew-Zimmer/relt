@@ -3,14 +3,13 @@ import { TypedExpression } from "../asts/expression/typed";
 import { Expression } from "../asts/expression/untyped";
 import { block, line, Line, nl, prefix } from "../asts/line";
 import { Type } from "../asts/type";
-import { FlatTypeExpression } from "../asts/typeExpression/flat";
 import { TypedTypeExpression } from "../asts/typeExpression/typed";
 import { TypeExpression } from "../asts/typeExpression/untyped";
 
 export function generateType(t: Type): string {
   switch (t.kind) {
-    case "ObjectType":
-      return `{ ${t.properties.map(p => `${p.name}: ${generateType(p.type)}`).join(', ')} }`;
+    case "StructType":
+      return `(${t.name}) { ${t.properties.map(p => `${p.name}: ${generateType(p.type)}`).join(', ')} }`;
     case "IntegerType":
       return `int`;
     case "FloatType":
@@ -21,10 +20,6 @@ export function generateType(t: Type): string {
       return `string`;
     case "FunctionType":
       return `(${t.from.map(generateType).join(', ')}) => ${generateType(t.to)}`;
-    case "IdentifierType":
-      return `${t.name}`;
-    case "TypeType":
-      return `TYPE`;
     case "UnitType":
       return `unit`;
     case "UnionType":
@@ -32,7 +27,7 @@ export function generateType(t: Type): string {
     case "PrimaryKeyType":
       return `pk ${generateType(t.of)}`;
     case "ForeignKeyType":
-      return `fk ${t.table}.${t.column} [[ ${generateType(t.of)} ]]`;
+      return `fk ${t.table}.${t.column}`;
     case "ArrayType":
       return `${generateType(t.of)}[]`;
     case "OptionalType":
@@ -254,135 +249,6 @@ export function generateSourceCodeUntyped(e: Expression | TypeExpression): Line[
   }
 }
 
-export function generateTypeExpressionFlat(e: FlatTypeExpression): Line[] {
-  switch (e.kind) {
-    case "FlatObjectTypeExpression":
-      return [
-        line(`{`),
-        block(
-          ...e.properties.map(p => prefix(`${p.name}: `, generateTypeExpressionFlat(p.value))),
-        ),
-        line(`}`),
-      ];
-    case "FlatIntegerTypeExpression":
-      return [line(`int`)];
-    case "FlatFloatTypeExpression":
-      return [line(`float`)];
-    case "FlatBooleanTypeExpression":
-      return [line(`bool`)];
-    case "FlatStringTypeExpression":
-      return [line(`string`)];
-    case "FlatIdentifierTypeExpression":
-      return [line(`${e.name}`)];
-    case "FlatJoinTypeExpression":
-      return [
-        ...generateTypeExpressionFlat(e.left),
-        line(`${e.method} join`),
-        ...generateTypeExpressionFlat(e.right),
-        ...(e.leftColumn && e.rightColumn ? [
-          line(`on ${e.leftColumn} == ${e.rightColumn}`)
-        ] : [])
-      ];
-    case "FlatDropTypeExpression":
-      return [
-        line('drop'),
-        ...generateTypeExpressionFlat(e.left),
-        block(
-          ...e.properties.map(line),
-        ),
-      ];
-    case "FlatWithTypeExpression":
-      return [
-        ...generateTypeExpressionFlat(e.left),
-        line('with {'),
-        block(
-          ...e.rules.flatMap(r => {
-            return [
-              line(`${r.name} =`),
-              block(
-                ...generateExpressionUntyped(r.value),
-              )
-            ];
-          })
-        ),
-        line('}')
-      ];
-    case "FlatUnionTypeExpression":
-      return [
-        ...generateTypeExpressionFlat(e.left),
-        line(`union`),
-        ...generateTypeExpressionFlat(e.right),
-      ];
-    case "FlatTypeIntroExpression":
-      return [
-        line(`type ${e.name} = `),
-        block(
-          ...generateTypeExpressionFlat(e.value)
-        )
-      ];
-    case "FlatForeignKeyTypeExpression":
-      return [line(`fk ${e.table}.${e.column}`)];
-    case "FlatPrimaryKeyTypeExpression":
-      return [prefix('pk ', generateTypeExpressionFlat(e.of))];
-    case "FlatArrayTypeExpression":
-      return [
-        ...generateTypeExpressionFlat(e.of),
-        line('[]')
-      ];
-    case "FlatGroupByTypeExpression":
-      return [
-        ...generateTypeExpressionFlat(e.left),
-        line(`group by ${e.column} agg {`),
-        block(
-          ...e.aggregations.flatMap(p => {
-            return [
-              line(`${p.name} =`),
-              block(
-                ...generateExpressionUntyped(p.value),
-              )
-            ];
-          })
-        ),
-        line('}')
-      ];
-  }
-}
-
-export function generateSourceCodeFlat(e: Expression | FlatTypeExpression): Line[] {
-  switch (e.kind) {
-    case "LetExpression":
-    case "IntegerExpression":
-    case "FloatExpression":
-    case "BooleanExpression":
-    case "StringExpression":
-    case "IdentifierExpression":
-    case "ObjectExpression":
-    case "FunctionExpression":
-    case "BlockExpression":
-    case "ApplicationExpression":
-    case "AddExpression":
-    case "DefaultExpression":
-    case "ArrayExpression":
-      return generateExpressionUntyped(e);
-    case "FlatObjectTypeExpression":
-    case "FlatJoinTypeExpression":
-    case "FlatDropTypeExpression":
-    case "FlatWithTypeExpression":
-    case "FlatUnionTypeExpression":
-    case "FlatArrayTypeExpression":
-    case "FlatIntegerTypeExpression":
-    case "FlatFloatTypeExpression":
-    case "FlatBooleanTypeExpression":
-    case "FlatStringTypeExpression":
-    case "FlatIdentifierTypeExpression":
-    case "FlatTypeIntroExpression":
-    case "FlatForeignKeyTypeExpression":
-    case "FlatPrimaryKeyTypeExpression":
-    case "FlatGroupByTypeExpression":
-      return generateTypeExpressionFlat(e);
-  }
-}
-
 export function generateExpressionTyped(e: TypedExpression): Line[] {
   switch (e.kind) {
     case "TypedLetExpression":
@@ -510,12 +376,22 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
         ),
         block(
           ...e.rules.flatMap(r => {
-            return [
-              line(`${r.name} =`),
-              block(
-                ...generateExpressionTyped(r.value),
-              )
-            ];
+            switch (r.kind) {
+              case "TypedRuleTypeProperty":
+                return [
+                  line(`${r.name} :`),
+                  block(
+                    ...generateTypeExpressionTyped(r.value),
+                  )
+                ];
+              case "TypedRuleValueProperty":
+                return [
+                  line(`${r.name} =`),
+                  block(
+                    ...generateExpressionTyped(r.value),
+                  )
+                ];
+            }
           })
         ),
         line('}')
@@ -607,10 +483,6 @@ export function generateSourceCodeTyped(e: TypedExpression | TypedTypeExpression
 
 export function generateAllSourceCodeUntyped(l: (Expression | TypeExpression)[]): Line[] {
   return l.flatMap(x => [...generateSourceCodeUntyped(x), nl]);
-}
-
-export function generateAllSourceCodeFlat(l: (Expression | FlatTypeExpression)[]): Line[] {
-  return l.flatMap(x => [...generateSourceCodeFlat(x), nl]);
 }
 
 export function generateAllSourceCodeTyped(l: (TypedExpression | TypedTypeExpression)[]): Line[] {

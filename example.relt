@@ -1,41 +1,40 @@
-# declare library lib package com.example.lib version 0.0.0 = {
-#  concat: string => string => string,
-# }
-
-let connection = {
-  kind: "db",
-  host: "localhost",
-  port: 5432,
-  user: "root",
-  password: "PASSWORD",
-}
-
 type Person = {
   id: pk int,
   firstName: string,
   lastName: string,
 }
 
-type Person2 = {
-  id: pk int,
-  firstName: string,
-} with {
-  lastName = firstName
+type Sale = {
+  # date: date,
+  personId: fk Person.id,
+  customerName: string,
+  amountDollars: float,
 }
 
-# type Sale = {
-#   # date: date,
-#   personId: fk Person.id,
-#   customerName: string,
-#   amountDollars: float,
-# }
+type PersonSale = (Person left join (group Sale by personId agg {
+  sales = collect(this),
+})) with {
+  sales = sales ?? [],
+}
 
-type PUP = Person union Person2
+func source(x: Person) {
+  {
+    kind: "db",
+    host: "localhost",
+    port: 5432,
+    user: "root",
+    password: "PASSWORD",
+    table: "person",
+  }
+}
 
-func source(t: Person) { connection + { table: "person" } } 
-func source(t: Person2) { connection + { table: "person" } } 
-func source(t: Sale) { connection + { table: "sale" } }
-
-# func destination(t: PersonSale) { connection } 
-# + { table: "person_sale" }
-
+func source(x: Sale) {
+  {
+    kind: "db",
+    host: "localhost",
+    port: 5432,
+    user: "root",
+    password: "PASSWORD",
+    table: "sale",
+  }
+}

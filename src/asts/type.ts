@@ -1,33 +1,20 @@
 export type Type =
-  | ObjectType
   | IntegerType
   | FloatType
   | BooleanType
   | StringType
   | FunctionType
-  | IdentifierType
-  | TypeType
   | UnitType
   | UnionType
   | PrimaryKeyType
   | ForeignKeyType
   | ArrayType
   | OptionalType
+  | StructType
 
-export type PrimitiveType =
-  | IntegerType
-  | FloatType
-  | BooleanType
-  | StringType
-  | IdentifierType
-  | UnitType
-  | PrimaryKeyType
-  | ForeignKeyType
-  | ArrayType<PrimitiveType>
-  | OptionalType<PrimitiveType>
-
-export interface ObjectType {
-  kind: "ObjectType";
+export interface StructType {
+  kind: "StructType";
+  name: string;
   properties: { name: string, type: Type }[];
 }
 
@@ -47,19 +34,10 @@ export interface StringType {
   kind: "StringType";
 }
 
-export interface IdentifierType {
-  kind: "IdentifierType";
-  name: string;
-}
-
 export interface FunctionType {
   kind: "FunctionType";
   from: Type[];
   to: Type;
-}
-
-export interface TypeType {
-  kind: "TypeType";
 }
 
 export interface UnitType {
@@ -85,7 +63,6 @@ export interface ForeignKeyType {
   kind: "ForeignKeyType";
   table: string;
   column: string;
-  of: IntegerType | StringType | PrimaryKeyType | ForeignKeyType;
 }
 
 export interface ArrayType<T extends Type = Type> {
@@ -98,17 +75,15 @@ export interface OptionalType<T extends Type = Type> {
   of: T;
 }
 
-export const objectType = (...properties: { name: string, type: Type }[]): ObjectType => ({ kind: "ObjectType", properties });
+export const structType = (name: string, properties: { name: string, type: Type }[]): StructType => ({ kind: "StructType", name, properties });
 export const integerType = (): IntegerType => ({ kind: "IntegerType" });
 export const floatType = (): FloatType => ({ kind: "FloatType" });
 export const booleanType = (): BooleanType => ({ kind: "BooleanType" });
 export const stringType = (): StringType => ({ kind: "StringType" });
 export const functionType = (from: Type[], to: Type): FunctionType => ({ kind: "FunctionType", from, to });
-export const identifierType = (name: string): IdentifierType => ({ kind: "IdentifierType", name });
-export const typeType = (): TypeType => ({ kind: "TypeType" });
 export const unitType = (): UnitType => ({ kind: "UnitType" });
 export const unionType = (...types: Type[]): UnionType => ({ kind: "UnionType", types });
 export const pkType = (of: IntegerType | StringType): PrimaryKeyType => ({ kind: "PrimaryKeyType", of });
-export const fkType = (table: string, column: string, of: ForeignKeyType['of']): ForeignKeyType => ({ kind: "ForeignKeyType", table, column, of });
+export const fkType = (table: string, column: string): ForeignKeyType => ({ kind: "ForeignKeyType", table, column });
 export const arrayType = (of: Type): ArrayType => ({ kind: "ArrayType", of });
 export const optionalType = (of: Type): OptionalType => ({ kind: "OptionalType", of });

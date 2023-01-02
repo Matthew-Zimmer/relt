@@ -55,91 +55,6 @@ export interface ScalaUnitType {
   kind: "ScalaUnitType";
 }
 
-// export type DatasetHandler =
-//   | SourceDatasetHandler
-//   | DerivedDatasetHandler
-
-// export interface SourceDatasetHandler {
-//   kind: "SourceDatasetHandler";
-//   typeName: string;
-//   datasetIndex: number;
-//   datasetCount: number;
-//   connectionInfo: SparkConnectionInfo;
-// }
-
-// export type SparkConnectionInfo =
-//   | SparkDBConnectionInfo
-
-// export interface SparkDBConnectionInfo {
-//   kind: "SparkDBConnectionInfo";
-//   host: string;
-//   port: number;
-//   user: string;
-//   password: string;
-//   table: string;
-//   // TODO
-//   // columns: string[]; 
-// }
-
-// export interface DerivedDatasetHandler {
-//   kind: "DerivedDatasetHandler";
-//   typeName: string;
-//   datasetIndex: number;
-//   datasetCount: number;
-//   parentDatasets: { name: string, index: number }[];
-//   rules: SparkRule[];
-// }
-
-// export type SparkRule =
-//   | SparkJoinRule
-//   | SparkMapRule
-//   | SparkAsRule
-//   | SparkIdentityRule
-//   | SparkReturnRule
-//   | SparkGroupAggRule
-
-// export interface SparkJoinRule {
-//   kind: "SparkJoinRule";
-//   name: string;
-//   left: string;
-//   right: string;
-//   type: "inner" | "outer" | "left" | "right";
-//   leftColumn: string;
-//   rightColumn: string;
-// }
-
-// export interface SparkMapRule {
-//   kind: "SparkMapRule";
-//   name: string;
-//   dataset: string;
-//   transformations: SparkMapTransformation[];
-// }
-
-// export interface SparkAsRule {
-//   kind: "SparkAsRule";
-//   name: string;
-//   dataset: string;
-//   type: string;
-// }
-
-// export interface SparkIdentityRule {
-//   kind: "SparkIdentityRule";
-//   name: string;
-// }
-
-// export interface SparkReturnRule {
-//   kind: "SparkReturnRule";
-//   name: string;
-// }
-
-// export interface SparkGroupAggRule {
-//   kind: "SparkGroupAggRule";
-//   name: string;
-//   dataset: string;
-//   groupColumn: string;
-//   aggregations: SparkAggregation[];
-// }
-
 export type SparkAggregation =
   | SparkCollectListAggregation
   | SparkSqlAggregation
@@ -196,23 +111,6 @@ export interface SparkGetOrElseRule {
   left: string;
   right: string;
 }
-
-// export interface SparkDependencyVertex {
-//   kind: "SparkDependencyVertex";
-//   id: number;
-//   name: string;
-//   incoming: number[];
-//   outgoing: number[];
-// }
-
-// export interface SparkProject {
-//   kind: "SparkProject";
-//   implicitCaseClasses: ScalaCaseClass[];
-//   types: SparkType[];
-//   vertices: SparkDependencyVertex[];
-//   name: string;
-//   package: string;
-// }
 
 export type SparkDatasetHandler =
   | SparkDBSourceDatasetHandler

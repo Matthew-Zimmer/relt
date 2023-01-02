@@ -1,6 +1,6 @@
 import { nl, line, block, Line } from '../asts/line';
 import { ScalaType, ScalaCaseClass, SparkProject, SparkDatasetHandler, DatasetId, SparkMapRule, SparkAggregation } from '../asts/scala';
-import { uncap } from '../utils';
+import { print, uncap } from '../utils';
 
 // export function generateScalaType(t: ScalaType): string {
 //   switch (t.kind) {
@@ -489,6 +489,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
         line(`}`),
       ),
       line(`}`),
+      nl,
     ];
   };
 
@@ -518,6 +519,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
         line(`}`),
       ),
       line(`}`),
+      nl,
     ];
   };
 
@@ -528,7 +530,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
       ]);
     case "SparkJoinDatasetHandler":
       return derivedHandler([h.leftInput, h.rightInput], [
-        line(`ds0.join(ds1, col("${h.leftColumn}") === col("${h.rightColumn}"), "${h.method}").as[${h.output.name}]`)
+        line(`ds0.join(ds1, ds0.col("${h.leftColumn}") === ds1.col("${h.rightColumn}"), "${h.method}").as[${h.output.name}]`)
       ]);
     case "SparkUnionDatasetHandler":
       return derivedHandler([h.leftInput, h.rightInput], [

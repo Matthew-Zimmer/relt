@@ -23,3 +23,4 @@
 - [ ] Local env testing
 - [ ] Checked constraints
 - [x] Union type expressions
+- [ ] struct types

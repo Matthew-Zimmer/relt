@@ -1,32 +1,34 @@
 import { TypedExpression } from "../expression/typed";
-import { ArrayType, BooleanType, ObjectType, FloatType, ForeignKeyType, IdentifierType, IntegerType, PrimaryKeyType, StringType, Type } from "../type";
-import { Id } from "./util";
+import { ArrayType, BooleanType, FloatType, ForeignKeyType, IntegerType, PrimaryKeyType, StringType, StructType, Type } from "../type";
 
-export type TypedTypeExpression =
+export type TypedTypeExpression<T extends Type = Type> =
   | TypedObjectTypeExpression
   | TypedIntegerTypeExpression
   | TypedFloatTypeExpression
   | TypedBooleanTypeExpression
   | TypedStringTypeExpression
-  | TypedIdentifierTypeExpression
+  | TypedIdentifierTypeExpression<T>
   | TypedJoinTypeExpression
   | TypedDropTypeExpression
   | TypedWithTypeExpression
   | TypedUnionTypeExpression
-  | TypedTypeIntroExpression
+  | TypedTypeIntroExpression<T>
   | TypedForeignKeyTypeExpression
   | TypedPrimaryKeyTypeExpression
   | TypedArrayTypeExpression
   | TypedGroupByTypeExpression
 
-export interface NamedTypedExpression {
-  name: string;
-  value: TypedExpression;
-}
+export type TypedStructLikeTypeExpression =
+  | TypedIdentifierTypeExpression<StructType>
+  | TypedJoinTypeExpression
+  | TypedDropTypeExpression
+  | TypedWithTypeExpression
+  | TypedUnionTypeExpression
+  | TypedTypeIntroExpression<StructType>
+  | TypedGroupByTypeExpression
 
 export interface TypedTypeIntroExpression<T extends Type = Type> {
   kind: "TypedTypeIntroExpression";
-  id: Id;
   name: string;
   value: TypedTypeExpression;
   type: T;
@@ -34,31 +36,26 @@ export interface TypedTypeIntroExpression<T extends Type = Type> {
 
 export interface TypedIntegerTypeExpression {
   kind: "TypedIntegerTypeExpression";
-  id: Id;
   type: IntegerType;
 }
 
 export interface TypedFloatTypeExpression {
   kind: "TypedFloatTypeExpression";
-  id: Id;
   type: FloatType;
 }
 
 export interface TypedBooleanTypeExpression {
   kind: "TypedBooleanTypeExpression";
-  id: Id;
   type: BooleanType;
 }
 
 export interface TypedStringTypeExpression {
   kind: "TypedStringTypeExpression";
-  id: Id;
   type: StringType;
 }
 
 export interface TypedForeignKeyTypeExpression {
   kind: "TypedForeignKeyTypeExpression";
-  id: Id;
   table: string;
   column: string;
   type: ForeignKeyType;
@@ -66,72 +63,85 @@ export interface TypedForeignKeyTypeExpression {
 
 export interface TypedPrimaryKeyTypeExpression {
   kind: "TypedPrimaryKeyTypeExpression";
-  id: Id;
   of: TypedIntegerTypeExpression | TypedStringTypeExpression;
   type: PrimaryKeyType;
 }
 
 export interface TypedObjectTypeExpression {
   kind: "TypedObjectTypeExpression";
-  id: Id;
   properties: { name: string, value: TypedTypeExpression }[];
-  type: ObjectType;
+  type: StructType;
 }
 
 export interface TypedArrayTypeExpression {
   kind: "TypedArrayTypeExpression";
-  id: Id;
   of: TypedTypeExpression;
   type: ArrayType;
 }
 
 export interface TypedIdentifierTypeExpression<T extends Type = Type> {
   kind: "TypedIdentifierTypeExpression";
-  id: Id;
   name: string;
   type: T;
 }
 
 export interface TypedJoinTypeExpression {
   kind: "TypedJoinTypeExpression";
-  id: Id;
-  left: TypedIdentifierTypeExpression<ObjectType>;
-  right: TypedIdentifierTypeExpression<ObjectType>;
+  left: TypedStructLikeTypeExpression;
+  right: TypedStructLikeTypeExpression;
   method: "inner" | "outer" | "left" | "right";
   leftColumn: string;
   rightColumn: string;
-  type: ObjectType;
+  type: StructType;
 }
 
 export interface TypedDropTypeExpression {
   kind: "TypedDropTypeExpression";
-  id: Id;
-  left: TypedIdentifierTypeExpression<ObjectType>;
+  left: TypedStructLikeTypeExpression;
   properties: string[];
-  type: ObjectType;
+  type: StructType;
 }
 
 export interface TypedWithTypeExpression {
   kind: "TypedWithTypeExpression";
-  id: Id;
-  left: TypedIdentifierTypeExpression<ObjectType>;
-  rules: NamedTypedExpression[];
-  type: ObjectType;
+  left: TypedStructLikeTypeExpression;
+  rules: TypedRuleProperty[];
+  type: StructType;
+}
+
+export type TypedRuleProperty =
+  | TypedRuleValueProperty
+  | TypedRuleTypeProperty
+
+export interface TypedRuleValueProperty {
+  kind: "TypedRuleValueProperty";
+  name: string;
+  value: TypedExpression;
+}
+
+export interface TypedRuleTypeProperty {
+  kind: "TypedRuleTypeProperty";
+  name: string;
+  value: TypedTypeExpression;
 }
 
 export interface TypedUnionTypeExpression {
   kind: "TypedUnionTypeExpression";
-  id: Id;
-  left: TypedIdentifierTypeExpression<ObjectType>;
-  right: TypedIdentifierTypeExpression<ObjectType>;
-  type: ObjectType;
+  left: TypedStructLikeTypeExpression;
+  right: TypedStructLikeTypeExpression;
+  type: StructType;
 }
 
 export interface TypedGroupByTypeExpression {
   kind: "TypedGroupByTypeExpression";
-  id: Id;
-  left: TypedIdentifierTypeExpression<ObjectType>;
+  left: TypedStructLikeTypeExpression;
   column: string;
-  aggregations: NamedTypedExpression[];
-  type: ObjectType;
+  aggregations: TypedAggProperty[];
+  type: StructType;
+}
+
+export interface TypedAggProperty {
+  kind: "TypedAggProperty";
+  name: string;
+  value: TypedExpression;
 }

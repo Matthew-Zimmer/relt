@@ -1,8 +1,8 @@
 import { TypedBlockExpression, TypedExpression } from '../../asts/expression/typed';
 import { Expression } from '../../asts/expression/untyped';
-import { arrayType, booleanType, floatType, FunctionType, functionType, integerType, objectType, stringType, Type, unionType, unitType } from '../../asts/type';
+import { arrayType, booleanType, floatType, FunctionType, functionType, integerType, stringType, structType, Type, unionType, unitType } from '../../asts/type';
 import { Context, typeEquals } from './utils';
-import { throws } from '../../utils';
+import { print, throws } from '../../utils';
 import { typeName } from '../evaluate';
 
 function addFunctionToContext(ctx: Context, name: string, type: Type): Context {
@@ -76,7 +76,7 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
     }
     case "ObjectExpression": {
       const properties = e.properties.map(x => ({ name: x.name, value: typeCheckExpression(x.value, ctx)[0] }));
-      return [{ kind: "TypedObjectExpression", properties, type: objectType(...properties.map(x => ({ name: x.name, type: x.value.type }))) }, ctx];
+      return [{ kind: "TypedObjectExpression", properties, type: structType("", properties.map(x => ({ name: x.name, type: x.value.type }))) }, ctx];
     }
     case "FunctionExpression": {
       const [value] = typeCheckExpression(e.value, { ...ctx, ...Object.fromEntries(e.parameters.map(x => [x.name, x.type])) });
@@ -124,10 +124,10 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
                   return [{ kind: "TypedAddExpression", left, op: e.op, right, type: stringType() }, ctx];
               }
               break;
-            case "ObjectType":
+            case "StructType":
               switch (right.type.kind) {
-                case "ObjectType":
-                  return [{ kind: "TypedAddExpression", left, op: e.op, right, type: objectType(...left.type.properties, ...right.type.properties) }, ctx];
+                case "StructType":
+                  return [{ kind: "TypedAddExpression", left, op: e.op, right, type: structType("", [left.type.properties, right.type.properties].flat()) }, ctx];
               }
               break;
           }

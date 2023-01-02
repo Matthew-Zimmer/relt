@@ -68,7 +68,7 @@ export const parser = generate(`
     / group_by_type_expression
 
   group_by_type_expression
-    = left: join_type_expression _ "group" __ "by" __ column: identifier __ "agg" _ aggregations: agg_properties
+    = "group" __ left: join_type_expression _ "by" __ column: identifier __ "agg" _ aggregations: agg_properties
     { return { kind: "GroupByTypeExpression", left, column, aggregations } }
     / join_type_expression
 
@@ -140,8 +140,10 @@ export const parser = generate(`
     { return { kind: "PrimaryKeyTypeExpression", of } }
 
   type 
-    = expr: (integer_type_expression / float_type_expression / boolean_type_expression / string_type_expression / identifier_type_expression)
+    = expr: (integer_type_expression / float_type_expression / boolean_type_expression / string_type_expression)
     { return { ...expr, kind: expr.kind.slice(0, -10) } }
+    / expr: identifier_type_expression
+    { return { kind: "StructType", name: expr.name, properties: [], } }
 
   object_type_expression
     = "{" _ head: object_type_property tail: (_ "," _ @object_type_property)* _ ("," _)? "}"

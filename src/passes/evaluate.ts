@@ -7,7 +7,12 @@ import { generateType } from "../debug/debug";
 export type Scope = Record<string, Value>;
 
 export function typeName(t: Type): string {
-  return generateType(t);
+  switch (t.kind) {
+    case "StructType":
+      return t.name;
+    default:
+      return generateType(t);
+  }
 }
 
 function mangleName(name: string, types: Type[]): string {
@@ -102,9 +107,9 @@ export function evaluate(e: TypedExpression, scope: Scope): [Value, Scope] {
                   return [addStringString(left as string, right as string), scope];
               }
               break;
-            case "ObjectType":
+            case "StructType":
               switch (e.right.type.kind) {
-                case "ObjectType":
+                case "StructType":
                   return [addObjectObject(left as ValueObject, right as ValueObject), scope];
               }
               break;
