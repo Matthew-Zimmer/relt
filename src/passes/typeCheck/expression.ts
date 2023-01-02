@@ -2,7 +2,7 @@ import { TypedBlockExpression, TypedExpression } from '../../asts/expression/typ
 import { Expression } from '../../asts/expression/untyped';
 import { arrayType, booleanType, floatType, FunctionType, functionType, integerType, stringType, structType, Type, unionType, unitType } from '../../asts/type';
 import { Context, typeEquals } from './utils';
-import { print, throws } from '../../utils';
+import { throws } from '../../utils';
 import { typeName } from '../evaluate';
 
 function addFunctionToContext(ctx: Context, name: string, type: Type): Context {

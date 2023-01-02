@@ -1,4 +1,4 @@
-import { throws, print } from "../utils";
+import { throws } from "../utils";
 import { TypedExpression } from "../asts/expression/typed";
 import { Value, ValueObject } from "../asts/value";
 import { Type } from "../asts/type";

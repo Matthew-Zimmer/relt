@@ -1,6 +1,5 @@
 import { TypedTypeExpression } from "../asts/typeExpression/typed";
-import { TypeExpression, TypeIntroExpression } from "../asts/typeExpression/untyped";
-import { throws, dedup } from "../utils";
+import { throws } from "../utils";
 
 interface Vertex {
   id: number;
@@ -89,37 +88,6 @@ export class DependencyGraph {
     return this.valuesOf(imp(this.vertex(v)));
   }
 }
-
-// function typeDependenciesOf(type: TypeExpression): string[] {
-//   switch (type.kind) {
-//     case 'BooleanTypeExpression':
-//     case 'FloatTypeExpression':
-//     case 'IntegerTypeExpression':
-//     case 'StringTypeExpression':
-//     case 'PrimaryKeyTypeExpression':
-//     case 'ForeignKeyTypeExpression': // maybe questionable? I don't think so since its not a data dep its just a relational concept 
-//       return [];
-//     case 'IdentifierTypeExpression':
-//       return [type.name];
-//     case 'ObjectTypeExpression':
-//       return type.properties.flatMap(x => typeDependenciesOf(x.value));
-//     case 'DropTypeExpression':
-//     case "GroupByTypeExpression":
-//       return typeDependenciesOf(type.left);
-//     case 'WithTypeExpression':
-//       return [
-//         ...typeDependenciesOf(type.left),
-//         ...type.rules.flatMap(x => x.kind === 'RuleTypeProperty' ? typeDependenciesOf(x.value) : []),
-//       ];
-//     case 'JoinTypeExpression':
-//     case 'UnionTypeExpression':
-//       return [typeDependenciesOf(type.left), typeDependenciesOf(type.right)].flat();
-//     case 'TypeIntroExpression':
-//       return [type.name, typeDependenciesOf(type.value)].flat();
-//     case 'ArrayTypeExpression':
-//       return typeDependenciesOf(type.of);
-//   }
-// }
 
 /**
  * Assuming typeExpressions have be desugared

@@ -1,4 +1,3 @@
-import { throws } from "../utils";
 import { TypedExpression } from "../asts/expression/typed";
 import { Expression } from "../asts/expression/untyped";
 import { block, line, Line, nl, prefix } from "../asts/line";

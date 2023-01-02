@@ -1,4 +1,4 @@
-import { TypeIntroExpression, TypeExpression, IntegerTypeExpression, PrimaryKeyTypeExpression } from "../asts/typeExpression/untyped";
+import { TypeIntroExpression, TypeExpression } from "../asts/typeExpression/untyped";
 import { TopLevelExpression } from "../asts/topLevel";
 import { visitTypeExpression } from "../vistors/typeExpression";
 import { Visitor, True } from "../vistors/utils";

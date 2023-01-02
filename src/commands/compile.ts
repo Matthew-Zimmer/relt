@@ -4,7 +4,6 @@ import { Expression } from "../asts/expression/untyped";
 import { generateLines } from "../passes/lineToString";
 import { generateSparkProject } from "../passes/scalaToLines";
 import { typeCheckTypeExpressions } from "../passes/typeCheck/typeExpression";
-import { namedTypeDependencyGraph } from "../graph";
 import { TopLevelExpression } from "../asts/topLevel";
 import { gatherNamedTypeExpressions } from "../passes/extractNamedTypeExpressions";
 import { typeCheckAllExpressions } from "../passes/typeCheck/expression";
@@ -15,7 +14,6 @@ import { block, Line, line, nl } from "../asts/line";
 import { SparkProject } from "../asts/scala";
 import { generateAllSourceCodeTyped, generateAllSourceCodeUntyped } from "../debug/debug";
 import { deriveSparkProject } from "../passes/typedReltToScala";
-import { TypedTypeIntroExpression } from "../asts/typeExpression/typed";
 
 export interface CompileArgs {
   "developer-mode": boolean;
