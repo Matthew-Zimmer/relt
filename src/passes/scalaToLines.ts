@@ -53,9 +53,9 @@ export function generateSparkMapRule(r: SparkMapRule): Line {
 export function generateSparkAggregation(r: SparkAggregation): Line {
   switch (r.kind) {
     case "SparkCollectListAggregation":
-      return line(`collect_list(struct(${r.columns.map(x => `col("${x}")`).join(', ')})) as "${r.name}",`);
+      return line(`collect_list(struct(${r.columns.map(x => `ds0.col("${x}")`).join(', ')})) as "${r.name}",`);
     case "SparkSqlAggregation":
-      return line(`${r.func}(col("${r.column}")) as "${r.name}",`);
+      return line(`${r.func}(ds0.col("${r.column}")) as "${r.name}",`);
   }
 }
 
@@ -130,7 +130,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
       ]);
     case "SparkJoinDatasetHandler":
       return derivedHandler([h.leftInput, h.rightInput], [
-        line(`ds0.join(ds1, ds0.col("${h.leftColumn}") === ds1.col("${h.rightColumn}"), "${h.method}").as[${h.output.name}]`)
+        line(`ds0.join(ds1, ds0.col("${h.leftColumn}") === ds1.col("${h.rightColumn}"), "${h.method}").drop(ds1.col("${h.rightColumn}")).as[${h.output.name}]`)
       ]);
     case "SparkUnionDatasetHandler":
       return derivedHandler([h.leftInput, h.rightInput], [
@@ -150,7 +150,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
       ]);
     case "SparkGroupDatasetHandler":
       return derivedHandler([h.input], [
-        line(`ds0.groupBy(col("${h.column}")).agg(`),
+        line(`ds0.groupBy(ds0.col("${h.column}")).agg(`),
         block(
           ...h.aggregations.map(generateSparkAggregation)
         ),
