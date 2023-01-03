@@ -1,4 +1,4 @@
-type Person = {
+type Employee = {
   id: pk int,
   firstName: string,
   lastName: string,
@@ -6,25 +6,30 @@ type Person = {
 
 type Sale = {
   # date: date,
-  personId: fk Person.id,
+  employeeId: fk Employee.id,
   customerName: string,
   amountDollars: float,
 }
 
-type PersonSale = (Person left join (group Sale by personId agg {
-  sales = collect(this),
-})) with {
+type EmployeeSale = (
+  Employee 
+  left join (
+    group Sale by employeeId agg {
+      sales = collect(this),
+    })) 
+with {
   sales = sales ?? [],
+  fullName = firstName + " " + lastName,
 }
 
-func source(x: Person) {
+func source(x: Employee) {
   {
     kind: "db",
     host: "localhost",
     port: 5432,
     user: "root",
     password: "PASSWORD",
-    table: "person",
+    table: "employee",
   }
 }
 
