@@ -3,6 +3,7 @@ import { initProject } from "./commands/init";
 import yargs from 'yargs';
 import { pull } from "./commands/pull";
 import { run } from "./commands/run";
+import { generate } from "./commands/generate";
 
 async function main() {
   yargs
@@ -52,6 +53,31 @@ async function main() {
           describe: "Force these tables to be shown",
         })
     ), x => run(x))
+    .command('generate [resource]', 'Generate resources for this project', yargs => (
+      yargs
+        .positional('resource', {
+          type: 'string',
+          choices: ["docs"],
+          describe: 'The type of resource to be generated'
+        })
+        .demandOption('resource')
+        .option("show-all-types", {
+          boolean: true,
+          alias: "a",
+          default: false,
+          describe: "Show implicit types in the generated resource",
+        })
+        .option("skip-compile", {
+          boolean: true,
+          default: false,
+          describe: "Skip any processing of the generated resource",
+        })
+        .option("skip-open", {
+          boolean: true,
+          default: false,
+          describe: "Skip opening the resource after generating",
+        })
+    ), x => generate(x))
     .help()
     .version('0.0.0')
     .usage('$0 <cmd> [args]')

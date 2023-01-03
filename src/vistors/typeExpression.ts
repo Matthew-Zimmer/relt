@@ -105,3 +105,7 @@ export function visitTypedTypeExpression<T>(e: TypedTypeExpression, visitor: Vis
   _visit(e);
   return data;
 }
+
+export function visitTypedTypeExpressions<T>(e: TypedTypeExpression[], visitor: Visitor<TypedTypeExpression, T>): T[] {
+  return e.flatMap(x => visitTypedTypeExpression(x, visitor));
+}

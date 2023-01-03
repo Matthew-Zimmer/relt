@@ -12,11 +12,12 @@ interface Edge {
 }
 
 export class DependencyGraph {
-  private childrenEdges = new Map<number, number[]>();
+  childrenEdges = new Map<number, number[]>();
   private parentEdges = new Map<number, number[]>();
   private vertexLookup = new Map<string, number>();
+  vertices = new Map<number, Vertex>();
 
-  constructor(public vertices: Vertex[], edges: Edge[]) {
+  constructor(vertices: Vertex[], private edges: Edge[]) {
     edges.forEach(e => {
       const val = this.childrenEdges.get(e.from) ?? [];
       this.childrenEdges.set(e.from, [...val, e.to]);
@@ -28,6 +29,7 @@ export class DependencyGraph {
     vertices.forEach(v => {
       this.vertexLookup.set(v.value, v.id);
     });
+    this.vertices = new Map(vertices.map(v => [v.id, v]));
   }
 
   private vertex(v: string): number {
@@ -42,12 +44,27 @@ export class DependencyGraph {
     return this.childrenEdges.get(id) ?? [];
   }
 
+  remove(name: string): DependencyGraph {
+    const id = this.vertex(name);
+    const parents = this.parents(id);
+    const children = this.children(id);
+
+    const vertices = [...this.vertices.values()].filter(v => v.id !== id);
+
+    const edges = [
+      ...this.edges.filter(x => x.from !== id && x.to !== id),
+      ...parents.flatMap(x => children.map(y => ({ from: x, to: y }))),
+    ];
+
+    return new DependencyGraph(vertices, edges);
+  }
+
   private valueOf(id: number): string {
-    return this.vertices[id].value;
+    return this.vertices.get(id)!.value;
   }
 
   private valuesOf(ids: number[]): string[] {
-    return ids.map(this.valueOf.bind(this));
+    return ids.map(x => this.valueOf(x));
   }
 
   isCyclic(): boolean {
@@ -55,7 +72,24 @@ export class DependencyGraph {
   }
 
   topologicalSort(): string[] {
-    return [];
+    const visited = new Map<number, boolean>([...this.vertices.keys()].map(k => [k, false]));
+    const stack: number[] = [];
+
+    const imp = (id: number) => {
+      visited.set(id, true);
+
+      for (const i of this.children(id))
+        if (!visited.get(i))
+          imp(i);
+
+      stack.push(id);
+    }
+
+    for (const id of this.vertices.keys())
+      if (!visited.get(id))
+        imp(id);
+
+    return this.valuesOf(stack);
   }
 
   parentsOf(v: string): string[] {

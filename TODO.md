@@ -20,7 +20,7 @@
 - [x] JSON format
 - [ ] JDBC format
 - [ ] Open Search Indexing
-- [ ] Dependency Graph Visualization (Documentation)
+- [x] Dependency Graph Visualization (Documentation)
 - [x] Local running
 - [x] Data pulling
 - [ ] Checked constraints

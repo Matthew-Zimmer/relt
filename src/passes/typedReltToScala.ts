@@ -13,7 +13,7 @@ import { groupByType, joinRelation, joinType, propertyLookup, withType } from ".
 import { Context } from "./typeCheck/utils";
 
 export function deriveSparkVertices(dg: DependencyGraph): SparkDependencyVertex[] {
-  return dg.vertices.map<SparkDependencyVertex>(x => ({
+  return [...dg.vertices.values()].map<SparkDependencyVertex>(x => ({
     kind: "SparkDependencyVertex",
     id: x.id,
     name: x.value,
