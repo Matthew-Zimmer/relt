@@ -84,7 +84,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
         nl,
         line(`def write(spark: SparkSession, ds: Dataset[${h.output.name}]): Unit = {`),
         block(
-          line(`// noop`),
+          h.show ? line(`ds.show()`) : line(`// no-op`),
         ),
         line(`}`),
       ),
@@ -100,6 +100,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
         line(`def handle(spark: SparkSession, dss: ${packageName}.Datasets): ${packageName}.Datasets = {`),
         block(
           line(`val ds = this.read(spark)`),
+          line(`this.write(spark, ds)`),
           line(dssTuple),
         ),
         line(`}`),
@@ -114,7 +115,7 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
         nl,
         line(`def write(spark: SparkSession, ds: Dataset[${h.output.name}]): Unit = {`),
         block(
-          line(`// noop`),
+          h.show ? line(`ds.show()`) : line(`// no-op`),
         ),
         line(`}`),
       ),
@@ -127,6 +128,10 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
     case "SparkDBSourceDatasetHandler":
       return sourceHandler([
         line(`Utils.readTable[${h.output.name}](spark, DBConnectionInfo("${h.host}", ${h.port}, "${h.user}", "${h.password}", "${h.table}", Seq()))`)
+      ]);
+    case "SparkFileSourceDatasetHandler":
+      return sourceHandler([
+        line(`spark.read.format("${h.format}").schema(Encoders.product[${h.output.name}].schema).load("${h.path}").as[${h.output.name}]`)
       ]);
     case "SparkJoinDatasetHandler":
       return derivedHandler([h.leftInput, h.rightInput], [

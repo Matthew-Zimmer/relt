@@ -17,10 +17,12 @@
 - [x] Optional types
 - [ ] Using scala libraries 
 - [ ] Delta format
+- [ ] CSV format
 - [ ] JDBC format
 - [ ] Open Search Indexing
 - [ ] Dependency Graph Visualization (Documentation)
-- [ ] Local env testing
+- [x] Local running
+- [x] Data pulling
 - [ ] Checked constraints
 - [x] Union type expressions
-- [ ] struct types
+- [x] struct types

@@ -114,6 +114,7 @@ export interface SparkGetOrElseRule {
 
 export type SparkDatasetHandler =
   | SparkDBSourceDatasetHandler
+  | SparkFileSourceDatasetHandler
   | SparkJoinDatasetHandler
   | SparkDropDatasetHandler
   | SparkMapDatasetHandler
@@ -134,6 +135,15 @@ export interface SparkDBSourceDatasetHandler {
   password: string;
   table: string;
   columns: string[];
+  show?: boolean;
+}
+
+export interface SparkFileSourceDatasetHandler {
+  kind: "SparkFileSourceDatasetHandler";
+  output: DatasetId;
+  path: string;
+  format: 'json';
+  show?: boolean;
 }
 
 export interface SparkJoinDatasetHandler {
@@ -144,6 +154,7 @@ export interface SparkJoinDatasetHandler {
   leftColumn: string;
   rightColumn: string;
   method: string;
+  show?: boolean;
 }
 
 export interface SparkUnionDatasetHandler {
@@ -151,6 +162,7 @@ export interface SparkUnionDatasetHandler {
   leftInput: DatasetId;
   rightInput: DatasetId;
   output: DatasetId;
+  show?: boolean;
 }
 
 export interface SparkDropDatasetHandler {
@@ -158,6 +170,7 @@ export interface SparkDropDatasetHandler {
   input: DatasetId;
   output: DatasetId;
   properties: string[];
+  show?: boolean;
 }
 
 export interface SparkMapDatasetHandler {
@@ -165,6 +178,7 @@ export interface SparkMapDatasetHandler {
   input: DatasetId;
   output: DatasetId;
   rules: SparkMapRule[];
+  show?: boolean;
 }
 
 export interface SparkGroupDatasetHandler {
@@ -173,6 +187,7 @@ export interface SparkGroupDatasetHandler {
   output: DatasetId;
   column: string;
   aggregations: SparkAggregation[];
+  show?: boolean;
 }
 
 export interface SparkDependencyVertex {
@@ -190,4 +205,23 @@ export interface SparkProject {
   datasetHandlers: SparkDatasetHandler[];
   caseClasses: ScalaCaseClass[];
   vertices: SparkDependencyVertex[];
+}
+
+
+export type SparkSourceDataSet =
+  | SparkDBSourceDatasetHandler
+  | SparkFileSourceDatasetHandler
+
+export function isSparkSourceDataSet(h: SparkDatasetHandler): h is SparkSourceDataSet {
+  switch (h.kind) {
+    case "SparkDBSourceDatasetHandler":
+    case "SparkFileSourceDatasetHandler":
+      return true;
+    case "SparkDropDatasetHandler":
+    case "SparkGroupDatasetHandler":
+    case "SparkJoinDatasetHandler":
+    case "SparkMapDatasetHandler":
+    case "SparkUnionDatasetHandler":
+      return false;
+  }
 }
