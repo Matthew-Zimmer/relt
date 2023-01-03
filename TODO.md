@@ -17,7 +17,7 @@
 - [x] Optional types
 - [ ] Using scala libraries 
 - [ ] Delta format
-- [ ] CSV format
+- [x] JSON format
 - [ ] JDBC format
 - [ ] Open Search Indexing
 - [ ] Dependency Graph Visualization (Documentation)
