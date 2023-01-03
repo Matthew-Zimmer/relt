@@ -35,9 +35,9 @@ export async function run(args: RunArgs) {
   const reltProject = await readDefaultedReltProject();
   const fileContent = await readSourceCode(reltProject);
   const topLevelExpressions = parseSourceCode(fileContent);
-  const [typedExpressions, ectx, typedTypeExpressions, tctx] = typeCheck(topLevelExpressions);
+  const [typedExpressions, ectx, typedTypeExpressions, tctx, libs] = typeCheck(topLevelExpressions);
   const [values, scope] = evaluateAllExpressions(typedExpressions);
-  let sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope);
+  let sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope, libs);
 
   sparkProject = {
     ...sparkProject,

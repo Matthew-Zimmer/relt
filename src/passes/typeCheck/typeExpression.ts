@@ -129,18 +129,21 @@ export function joinRelation(left: StructType, lCol: string | undefined, right: 
   return relations[0];
 }
 
-function makeInitialExpressionContext(t: StructType): Context {
-  return Object.fromEntries(t.properties.map(x => [x.name, x.type]));
+function makeInitialExpressionContext(t: StructType, extra: Context): Context {
+  return {
+    ...extra,
+    ...Object.fromEntries(t.properties.map(x => [x.name, x.type])),
+  };
 }
 
-function makeInitialAggExpressionContext(t: StructType): Context {
+function makeInitialAggExpressionContext(t: StructType, extra: Context): Context {
   const int = integerType();
   const float = floatType();
   const bool = booleanType();
   const string = stringType();
 
   return {
-    ...makeInitialExpressionContext(t),
+    ...makeInitialExpressionContext(t, extra),
     this: t,
     sum: unionType(
       functionType([int], int),
@@ -226,7 +229,7 @@ function sub(e: TypedTypeExpression, oldName: string, newName: string): TypedTyp
   }
 }
 
-export function typeCheckTypeExpressions(expressions: TypeExpression[]): [TypedTypeExpression[], Context] {
+export function typeCheckTypeExpressions(expressions: TypeExpression[], initialExpressionContext?: Context): [TypedTypeExpression[], Context] {
   let ctx: Context = {};
 
   const inLocalContext = <T>(f: () => T) => {
@@ -237,7 +240,7 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[]): [TypedT
   };
 
   const typeCheckRuleProperties = (t: StructType, rules: RuleProperty[]): TypedRuleProperty[] => {
-    let eCtx = makeInitialExpressionContext(t);
+    let eCtx = makeInitialExpressionContext(t, initialExpressionContext ?? {});
     const typeCheckRule = (rule: RuleProperty): TypedRuleProperty => {
       switch (rule.kind) {
         case "RuleTypeProperty":
@@ -253,7 +256,7 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[]): [TypedT
   };
 
   const typeCheckAggProperties = (t: StructType, aggs: AggProperty[]): TypedAggProperty[] => {
-    let eCtx = makeInitialAggExpressionContext(t);
+    let eCtx = makeInitialAggExpressionContext(t, initialExpressionContext ?? {});
     const typeCheckAgg = (agg: AggProperty): TypedAggProperty => {
       switch (agg.kind) {
         case "AggProperty": {

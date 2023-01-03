@@ -52,7 +52,7 @@ export async function compile(args: CompileArgs) {
     await writeDeveloperLog(`out/developer/untyped.txt`, topLevelExpressions, generateAllSourceCodeUntyped);
   }
 
-  const [typedExpressions, ectx, typedTypeExpressions, tctx] = typeCheck(topLevelExpressions);
+  const [typedExpressions, ectx, typedTypeExpressions, tctx, libs] = typeCheck(topLevelExpressions);
 
   if (args["developer-mode"]) {
     console.log(`Writing developer typed checkpoint`);
@@ -61,7 +61,7 @@ export async function compile(args: CompileArgs) {
 
   const [values, scope] = evaluateAllExpressions(typedExpressions);
 
-  const sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope);
+  const sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope, libs);
 
   return writeScalaProject(reltProject, sparkProject);
 }

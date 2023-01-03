@@ -45,8 +45,8 @@ export function generateSparkMapRule(r: SparkMapRule): Line {
       return line(`val ${r.name} = ${r.left} ${r.op} ${r.right}`);
     case "SparkGetOrElseRule":
       return line(`val ${r.name} = ${r.left}.getOrElse(${r.right})`);
-    case "SparkRowExtractRule":
-      return line(`val ${r.name} = row.${r.property}`);
+    case "SparkDotRule":
+      return line(`val ${r.name} = ${r.left}.${r.right}`);
   }
 }
 
@@ -168,18 +168,16 @@ export function generateSparkProject(p: SparkProject): Line[] {
   return [
     line(`package ${p.package === '' ? '' : `${p.package}.`}${p.name}`),
     nl,
+    line(`// --- Standard Libraries ---`),
     line(`import scala.reflect.runtime.universe.{ TypeTag }`),
     line(`import org.apache.spark.sql.{ Encoders, Dataset, Row, SparkSession }`),
-    line(`import org.apache.spark.sql.functions.{ collect_list, col, struct, sum }`),
+    line(`import org.apache.spark.sql.functions.{ collect_list, struct, sum }`),
     line(`import java.sql.Date`),
     nl,
-    line(`// --- CORE LIBRARY CODE ---`),
+    line(`// --- User Defined Libraries ---`),
+    ...p.libraries.map(lib => line(`import ${lib.package}.{ ${lib.name} }`)),
     nl,
-    line(`object Ops {`),
-    block(
-      line(`def concat(l: String, r: String): String = l + " " + r`),
-    ),
-    line(`}`),
+    line(`// --- CORE LIBRARY CODE ---`),
     nl,
     line(`final case class DBConnectionInfo[T <: Product: TypeTag] (`),
     block(

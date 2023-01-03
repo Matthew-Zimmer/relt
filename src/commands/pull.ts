@@ -20,9 +20,9 @@ export async function pull(args: PullArgs) {
   const reltProject = await readDefaultedReltProject();
   const fileContent = await readSourceCode(reltProject);
   const topLevelExpressions = parseSourceCode(fileContent);
-  const [typedExpressions, ectx, typedTypeExpressions, tctx] = typeCheck(topLevelExpressions);
+  const [typedExpressions, ectx, typedTypeExpressions, tctx, libs] = typeCheck(topLevelExpressions);
   const [values, scope] = evaluateAllExpressions(typedExpressions);
-  const sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope);
+  const sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope, libs);
 
   const sourceDatasets = sparkProject.datasetHandlers.filter(isSparkSourceDataSet);
   const sourceDatasetsToPull: [SparkSourceDataSet, StructType][] = [];
@@ -64,7 +64,7 @@ export async function emptyDirectory(path: string) {
   await mkdir(path);
 }
 
-export async function pullMockData(reltProject: Required<ReltProject>, dss: [SparkSourceDataSet, StructType][]) {
+export async function pullMockData(reltProject: ReltProject, dss: [SparkSourceDataSet, StructType][]) {
   const data = generateMockDataFor(dss.map(x => x[1]));
   const prefix = `${reltProject.outDir}/${reltProject.name}/data`;
 

@@ -7,25 +7,29 @@ export function isReltProject() {
   return existsSync(reltConfigFileName);
 }
 
-export interface ReltProject {
+export interface ReltProjectConfig {
   name: string;
   package?: string;
   srcDir?: string;
   mainFile?: string;
   outDir?: string;
+  version?: string;
 }
 
-export function defaultedReltProject(p: ReltProject): Required<ReltProject> {
+export type ReltProject = Required<ReltProjectConfig>;
+
+export function defaultedReltProject(p: ReltProjectConfig): ReltProject {
   return {
     name: p.name,
     mainFile: p.mainFile ?? 'main.relt',
     package: p.package ?? "",
     srcDir: p.srcDir ?? 'src',
     outDir: p.outDir ?? 'out',
+    version: p.version ?? '0.0.0',
   };
 }
 
-export async function createReltProject(p: ReltProject) {
+export async function createReltProject(p: ReltProjectConfig) {
   return writeFile(reltConfigFileName, JSON.stringify(p, undefined, 2));
 }
 
@@ -35,6 +39,6 @@ export async function readReltProject(): Promise<ReltProject> {
   return JSON.parse((await readFile(reltConfigFileName)).toString());
 }
 
-export async function readDefaultedReltProject(): Promise<Required<ReltProject>> {
+export async function readDefaultedReltProject(): Promise<ReltProject> {
   return defaultedReltProject(await readReltProject());
 }

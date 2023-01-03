@@ -14,6 +14,7 @@ export type Expression =
   | AddExpression
   | DefaultExpression
   | ArrayExpression
+  | DotExpression
 
 export interface LetExpression {
   kind: "LetExpression";
@@ -86,4 +87,10 @@ export interface DefaultExpression {
 export interface ArrayExpression {
   kind: "ArrayExpression";
   values: Expression[];
+}
+
+export interface DotExpression {
+  kind: "DotExpression";
+  left: Expression;
+  right: Expression;
 }

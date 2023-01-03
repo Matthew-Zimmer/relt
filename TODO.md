@@ -15,7 +15,7 @@
 - [x] Array types
 - [x] Left joins use optional
 - [x] Optional types
-- [ ] Using scala libraries 
+- [x] Using scala libraries 
 - [ ] Delta format
 - [x] JSON format
 - [ ] JDBC format

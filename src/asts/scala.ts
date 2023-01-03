@@ -1,3 +1,4 @@
+import { LibraryDeclaration } from "./topLevel";
 
 export interface ScalaCaseClass {
   kind: "ScalaCaseClass";
@@ -73,11 +74,11 @@ export interface SparkSqlAggregation {
 }
 
 export type SparkMapRule =
-  | SparkRowExtractRule
   | SparkApplicationRule
   | SparkIdentityRule
   | SparkBinaryOperationRule
   | SparkGetOrElseRule
+  | SparkDotRule
 
 export interface SparkRowExtractRule {
   kind: "SparkRowExtractRule";
@@ -107,6 +108,13 @@ export interface SparkBinaryOperationRule {
 
 export interface SparkGetOrElseRule {
   kind: "SparkGetOrElseRule";
+  name: string;
+  left: string;
+  right: string;
+}
+
+export interface SparkDotRule {
+  kind: "SparkDotRule";
   name: string;
   left: string;
   right: string;
@@ -205,6 +213,7 @@ export interface SparkProject {
   datasetHandlers: SparkDatasetHandler[];
   caseClasses: ScalaCaseClass[];
   vertices: SparkDependencyVertex[];
+  libraries: LibraryDeclaration[];
 }
 
 

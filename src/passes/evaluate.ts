@@ -128,6 +128,11 @@ export function evaluate(e: TypedExpression, scope: Scope): [Value, Scope] {
       const values = e.values.map(x => evaluate(x, scope)[0]);
       return [values, scope];
     }
+    case "TypedDotExpression": {
+      const [left] = evaluate(e.left, scope) as [ValueObject, Scope];
+      const [right] = evaluate(e.right, left);
+      return [right, scope];
+    }
   }
 }
 

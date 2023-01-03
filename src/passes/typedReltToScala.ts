@@ -1,5 +1,6 @@
 import { TypedExpression, TypedIdentifierExpression } from "../asts/expression/typed";
 import { DatasetId, ScalaCaseClass, ScalaType, SparkAggregation, SparkDatasetHandler, SparkDependencyVertex, SparkMapRule, SparkProject } from "../asts/scala";
+import { LibraryDeclaration } from "../asts/topLevel";
 import { arrayType, functionType, optionalType, StructType, Type, unitType } from "../asts/type";
 import { TypedAggProperty, TypedGroupByTypeExpression, TypedJoinTypeExpression, TypedRuleProperty, TypedRuleTypeProperty, TypedRuleValueProperty, TypedStructLikeTypeExpression, TypedTypeExpression, TypedWithTypeExpression } from "../asts/typeExpression/typed";
 import { DependencyGraph, namedTypeDependencyGraph } from "../graph";
@@ -218,10 +219,11 @@ function desugar(expressions: TypedTypeExpression[]): TypedTypeExpression[] {
 }
 
 export function deriveSparkProject(
-  retlConfig: Required<ReltProject>,
+  retlConfig: ReltProject,
   expressions: TypedTypeExpression[],
   expressionContext: Context,
   scope: Scope,
+  libs: LibraryDeclaration[],
 ): SparkProject {
   const structTypes = new Map<string, StructType>();
   const indexes = new Map<string, number>();
@@ -420,6 +422,12 @@ export function deriveSparkProject(
           rules.push({ kind: "SparkApplicationRule", name, args, func: `Array[${generateScalaType(convertTypeToScalaType(e.type.of))}]` });
           return name;
         }
+        case "TypedDotExpression": {
+          const left = imp(e.left);
+          const name = `_v${c++}`;
+          rules.push({ kind: "SparkDotRule", name, left, right: e.right.type.kind === 'FunctionType' ? `${e.right.name} _` : e.right.name });
+          return name;
+        }
       }
     }
 
@@ -511,7 +519,7 @@ export function deriveSparkProject(
           input: datasetIdFor(e.left.type),
           output: datasetIdFor(e.type),
           rules: [
-            ...e.left.type.properties.map<SparkMapRule>(p => ({ kind: "SparkRowExtractRule", name: `${p.name}0`, property: p.name })),
+            ...e.left.type.properties.map<SparkMapRule>(p => ({ kind: "SparkDotRule", name: `${p.name}0`, left: "row", right: p.name })),
             ...rules,
             { kind: "SparkIdentityRule", name: `${e.type.name}(${e.type.properties.map(p => `${p.name}${seen.get(p.name) ?? 0}`).join(', ')})` }
           ],
@@ -562,5 +570,6 @@ export function deriveSparkProject(
     caseClasses,
     datasetHandlers,
     vertices: deriveSparkVertices(dg),
+    libraries: libs,
   };
 }

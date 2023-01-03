@@ -1,6 +1,6 @@
-import { TypedBlockExpression, TypedExpression } from '../../asts/expression/typed';
+import { TypedBlockExpression, TypedExpression, TypedFunctionExpression, TypedIdentifierExpression } from '../../asts/expression/typed';
 import { Expression } from '../../asts/expression/untyped';
-import { arrayType, booleanType, floatType, FunctionType, functionType, integerType, stringType, structType, Type, unionType, unitType } from '../../asts/type';
+import { arrayType, booleanType, floatType, FunctionType, functionType, integerType, OptionalType, stringType, StructType, structType, Type, unionType, unitType } from '../../asts/type';
 import { Context, typeEquals } from './utils';
 import { throws } from '../../utils';
 import { typeName } from '../evaluate';
@@ -20,16 +20,16 @@ function addFunctionToContext(ctx: Context, name: string, type: Type): Context {
   }
 }
 
-function applicationResultType(func: FunctionType, args: Type[]): Type {
+function applicationResultType(func: FunctionType, args: Type[]): FunctionType {
   if (args.length !== func.from.length)
     throws(`Cannot all function expecting ${func.from.length} args with ${args.length} args`);
   for (const i of func.from.keys())
     if (!typeEquals(func.from[i], args[i]))
       throws(`func call ${i}th args does not match expected ${func.from[i].kind} got ${args[i].kind}`);
-  return func.to;
+  return func;
 }
 
-function overloadedApplicationResultType(func: Type, args: Type[]): Type {
+function overloadedApplicationResultType(func: Type, args: Type[]): FunctionType {
   switch (func.kind) {
     case 'FunctionType':
       return applicationResultType(func, args);
@@ -97,7 +97,9 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
 
       const type = overloadedApplicationResultType(func.type, args.map(x => x.type));
 
-      return [{ kind: "TypedApplicationExpression", func, args, type }, ctx];
+      const func1 = { ...func, type } as TypedExpression<FunctionType>;
+
+      return [{ kind: "TypedApplicationExpression", func: func1, args, type: type.to }, ctx];
     }
     case "AddExpression": {
       const [left] = typeCheckExpression(e.left, ctx);
@@ -152,7 +154,7 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
 
       return [{
         kind: "TypedDefaultExpression",
-        left,
+        left: left as TypedExpression<OptionalType>,
         right,
         op: "??",
         type: left.type.of,
@@ -168,14 +170,27 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
           throws(`Error: array value at idx ${i} is ${typeName(t)} which does not equal ${typeName(types[0])}`);
       return [{ kind: "TypedArrayExpression", values, type: arrayType(types[0]) }, ctx];
     }
+    case "DotExpression": {
+      const [left] = typeCheckExpression(e.left, ctx);
+
+      if (left.type.kind !== 'StructType')
+        throws(`Error: Left side of a dot expression needs to be a struct type`);
+      if (e.right.kind !== 'IdentifierExpression')
+        throws(`Error: Left side of a dot expression needs to be an identifier expression`);
+
+      const [right] = typeCheckExpression(e.right, Object.fromEntries(left.type.properties.map(x => [x.name, x.type])));
+      const type = right.type;
+
+      return [{ kind: "TypedDotExpression", left: left as TypedIdentifierExpression<StructType>, right: right as TypedIdentifierExpression, type }, ctx];
+    }
   }
 }
 
-export function typeCheckAllExpressions(expressions: Expression[]): [TypedExpression[], Context] {
+export function typeCheckAllExpressions(expressions: Expression[], ctx?: Context): [TypedExpression[], Context] {
   return expressions.reduce<[TypedExpression[], Context]>(([a, c], e) => {
     const [e1, c1] = typeCheckExpression(e, c);
     return [[...a, e1], c1];
-  }, [[], {}]);
+  }, [[], ctx ?? {}]);
 }
 
 export function isValidExpression(e: Expression, ctx: Context): boolean {

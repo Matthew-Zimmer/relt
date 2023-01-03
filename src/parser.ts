@@ -13,12 +13,52 @@ export const parser = generate(`
 
   identifier 
     = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    ! { return ["type", "let", "func", "fk", "pk"].includes(chars[0] + chars[1].join('')) }
+    ! { return ["type", "let", "func", "fk", "pk", "declare"].includes(chars[0] + chars[1].join('')) }
     { return chars[0] + chars[1].join('') }
+
+  free_identifier
+    = chars: [^ \\t\\n\\r]+
+    { return chars.join('') }
 
   top_level_expression
     = type_intro_expression
     / expression
+    / library_declaration
+
+  library_declaration
+    = "declare" __ "library" __ name: identifier __ "package" __ package_: free_identifier __ "version" __ version: free_identifier _ "=" _ members: library_members
+    { return { kind: "LibraryDeclaration", name, package: package_, version, members } }
+
+  library_members
+    = "{" _ head: library_member tail: (_ "," _ @library_members)* _ ("," _)? "}"
+    { return [head, ...tail] }
+
+  library_member
+    = name: identifier _ ":" _ type: full_type
+    { return { name, type } }
+
+  full_type
+    = full_function_type
+
+  full_function_type
+    = "(" args: (_ @(h: full_type t: (_ "," _ @full_type)* { return [h, ...t] }) (_ ",")? )? _ ")" _ "=>" _ ret: full_type
+    { return { kind: "FunctionType", from: args, to: ret } }
+    / full_post_type
+
+  full_post_type
+    = head:full_literal_type tail:(_ op: ("?" / "[]") { return {
+        kind: op === "?" ? "OptionalType" : "ArrayType",
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, of: t }), head) }
+
+  full_literal_type
+    = "int" { return { kind: "IntegerType" } }
+    / "float" { return { kind: "FloatType" } }
+    / "bool" { return { kind: "BooleanType" } }
+    / "string" { return { kind: "StringType" } }
+    / "unit" { return { kind: "UnitType" } }
+    / name: identifier { return { kind: "StructType", name, properties: [] } }
+    / "(" _ ty: full_type _ ")" { return ty }
 
   expression
     = let_expression
@@ -194,7 +234,7 @@ export const parser = generate(`
   { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   application_expression
-    = head:literal_expression tail:(_ args: application_args _ { return {
+    = head:dot_expression tail:(_ args: application_args _ { return {
       kind: 'ApplicationExpression',
       args,
   }})*
@@ -203,6 +243,13 @@ export const parser = generate(`
   application_args
     = "(" _ args: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? ")"
     { return args ?? [] }
+
+  dot_expression
+    = head:literal_expression tail:(_ "." _ right:literal_expression _ { return {
+      kind: 'DotExpression',
+      right,
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   literal_expression
     = float_expression

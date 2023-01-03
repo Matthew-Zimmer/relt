@@ -1,6 +1,7 @@
 import { TypedExpression } from "../asts/expression/typed";
 import { Expression } from "../asts/expression/untyped";
 import { block, line, Line, nl, prefix } from "../asts/line";
+import { TopLevelExpression } from "../asts/topLevel";
 import { Type } from "../asts/type";
 import { TypedTypeExpression } from "../asts/typeExpression/typed";
 import { TypeExpression } from "../asts/typeExpression/untyped";
@@ -102,6 +103,14 @@ export function generateExpressionUntyped(e: Expression): Line[] {
           ...e.values.flatMap(generateExpressionUntyped),
         ),
         line(`]`)
+      ];
+    case "DotExpression":
+      return [
+        ...generateExpressionUntyped(e.left),
+        block(
+          line('.'),
+        ),
+        ...generateExpressionUntyped(e.right),
       ];
   }
 }
@@ -213,7 +222,7 @@ export function generateTypeExpressionUntyped(e: TypeExpression): Line[] {
   }
 }
 
-export function generateSourceCodeUntyped(e: Expression | TypeExpression): Line[] {
+export function generateSourceCodeUntyped(e: TopLevelExpression): Line[] {
   switch (e.kind) {
     case "LetExpression":
     case "IntegerExpression":
@@ -228,23 +237,18 @@ export function generateSourceCodeUntyped(e: Expression | TypeExpression): Line[
     case "AddExpression":
     case "DefaultExpression":
     case "ArrayExpression":
+    case "DotExpression":
       return generateExpressionUntyped(e);
-    case "ObjectTypeExpression":
-    case "IntegerTypeExpression":
-    case "FloatTypeExpression":
-    case "BooleanTypeExpression":
-    case "StringTypeExpression":
-    case "IdentifierTypeExpression":
-    case "JoinTypeExpression":
-    case "DropTypeExpression":
-    case "WithTypeExpression":
-    case "UnionTypeExpression":
     case "TypeIntroExpression":
-    case "ForeignKeyTypeExpression":
-    case "PrimaryKeyTypeExpression":
-    case "ArrayTypeExpression":
-    case "GroupByTypeExpression":
       return generateTypeExpressionUntyped(e);
+    case "LibraryDeclaration":
+      return [
+        line(`declare library ${e.name} package ${e.package} version ${e.version} = {`),
+        block(
+          ...e.members.map(x => line(`${x.name}: ${generateType(x.type)}`)),
+        ),
+        line('}')
+      ];
   }
 }
 
@@ -316,6 +320,14 @@ export function generateExpressionTyped(e: TypedExpression): Line[] {
           ...e.values.flatMap(generateExpressionTyped),
         ),
         line(`] : ${generateType(e.type)}`)
+      ];
+    case "TypedDotExpression":
+      return [
+        ...generateExpressionTyped(e.left),
+        block(
+          line(`. : ${generateType(e.type)}`),
+        ),
+        ...generateExpressionTyped(e.right),
       ];
   }
 }
@@ -460,6 +472,7 @@ export function generateSourceCodeTyped(e: TypedExpression | TypedTypeExpression
     case "TypedAddExpression":
     case "TypedDefaultExpression":
     case "TypedArrayExpression":
+    case "TypedDotExpression":
       return generateExpressionTyped(e);
     case "TypedObjectTypeExpression":
     case "TypedIntegerTypeExpression":
@@ -480,7 +493,7 @@ export function generateSourceCodeTyped(e: TypedExpression | TypedTypeExpression
   }
 }
 
-export function generateAllSourceCodeUntyped(l: (Expression | TypeExpression)[]): Line[] {
+export function generateAllSourceCodeUntyped(l: TopLevelExpression[]): Line[] {
   return l.flatMap(x => [...generateSourceCodeUntyped(x), nl]);
 }
 

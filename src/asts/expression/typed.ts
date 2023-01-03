@@ -1,26 +1,27 @@
-import { ArrayType, Type } from "../type";
+import { ArrayType, FunctionType, OptionalType, StructType, Type } from "../type";
 import { Parameter } from "./parameter";
 
-export type TypedExpression =
-  | TypedLetExpression
+export type TypedExpression<T extends Type = Type> =
   | TypedIntegerExpression
   | TypedFloatExpression
   | TypedBooleanExpression
   | TypedStringExpression
-  | TypedIdentifierExpression
   | TypedObjectExpression
   | TypedFunctionExpression
-  | TypedBlockExpression
-  | TypedApplicationExpression
-  | TypedAddExpression
-  | TypedDefaultExpression
   | TypedArrayExpression
+  | TypedLetExpression<T>
+  | TypedIdentifierExpression<T>
+  | TypedBlockExpression<T>
+  | TypedApplicationExpression<T>
+  | TypedAddExpression<T>
+  | TypedDefaultExpression<T>
+  | TypedDotExpression<T>
 
-export interface TypedLetExpression {
+export interface TypedLetExpression<T extends Type = Type> {
   kind: "TypedLetExpression";
   name: string;
   value: TypedExpression;
-  type: Type;
+  type: T;
 }
 
 export interface TypedIntegerExpression {
@@ -47,10 +48,10 @@ export interface TypedStringExpression {
   type: Type;
 }
 
-export interface TypedIdentifierExpression {
+export interface TypedIdentifierExpression<T extends Type = Type> {
   kind: "TypedIdentifierExpression";
   name: string;
-  type: Type;
+  type: T;
 }
 
 export interface TypedObjectExpression {
@@ -59,10 +60,10 @@ export interface TypedObjectExpression {
   type: Type;
 }
 
-export interface TypedBlockExpression {
+export interface TypedBlockExpression<T extends Type = Type> {
   kind: "TypedBlockExpression";
   values: TypedExpression[];
-  type: Type;
+  type: T;
 }
 
 export interface TypedFunctionExpression {
@@ -73,27 +74,27 @@ export interface TypedFunctionExpression {
   type: Type;
 }
 
-export interface TypedApplicationExpression {
+export interface TypedApplicationExpression<T extends Type = Type> {
   kind: "TypedApplicationExpression";
-  func: TypedExpression;
+  func: TypedExpression<FunctionType>;
   args: TypedExpression[];
-  type: Type;
+  type: T;
 }
 
-export interface TypedAddExpression {
+export interface TypedAddExpression<T extends Type = Type> {
   kind: "TypedAddExpression";
   left: TypedExpression;
   op: "+";
   right: TypedExpression;
-  type: Type;
+  type: T;
 }
 
-export interface TypedDefaultExpression {
+export interface TypedDefaultExpression<T extends Type = Type> {
   kind: "TypedDefaultExpression";
-  left: TypedExpression;
+  left: TypedExpression<OptionalType>;
   op: "??";
   right: TypedExpression;
-  type: Type;
+  type: T;
 }
 
 export interface TypedArrayExpression {
@@ -101,3 +102,11 @@ export interface TypedArrayExpression {
   values: TypedExpression[];
   type: ArrayType;
 }
+
+export interface TypedDotExpression<T extends Type = Type> {
+  kind: "TypedDotExpression";
+  left: TypedExpression<StructType>;
+  right: TypedIdentifierExpression;
+  type: T;
+}
+
