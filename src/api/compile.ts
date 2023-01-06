@@ -15,7 +15,7 @@ import { TypedExpression } from "../asts/expression/typed";
 import { TypedTypeExpression } from "../asts/typeExpression/typed";
 import { Context } from "../passes/typeCheck/utils";
 import { deriveSparkProject } from "../passes/typedReltToScala";
-import { emptyDirectory } from "../commands/pull";
+import { emptyDirectory, ensureDirectoryExists } from "../commands/pull";
 import { structType } from "../asts/type";
 
 export async function readSourceCode(reltProject: ReltProject): Promise<string> {
@@ -46,6 +46,11 @@ export function typeCheck(nodes: TopLevelExpression[]): [TypedExpression[], Cont
 export async function writeScalaProject(reltProject: ReltProject, sparkProject: SparkProject) {
   const projectOutDir = `${reltProject.outDir}/${reltProject.name}`;
   const packageDir = reltProject.package.split('.').join('/');
+
+  await Promise.all([
+    ensureDirectoryExists(`${projectOutDir}/project`),
+    ensureDirectoryExists(`${projectOutDir}/src/main/scala/${packageDir}`),
+  ]);
 
   await Promise.all([
     emptyDirectory(`${projectOutDir}/project`),

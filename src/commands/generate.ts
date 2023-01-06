@@ -220,13 +220,14 @@ async function generateDocs(
   if (skipCompile) return;
 
   console.log("Compiling D2 file");
-  try {
-    spawnSync('d2', [`${prefix}/docs.d2`]);
-  }
-  catch (e) {
-    console.log("You are probably missing d2");
-    console.log(`Please see: https://github.com/terrastruct/d2#install`);
-    console.log(`Then run again`);
+
+  const d2Res = spawnSync('d2', [`${prefix}/docs.d2`]);
+  if (d2Res === null || d2Res.status !== 0) {
+    console.error("Failed to compile with d2, is it installed?")
+    console.error(`Please see: https://github.com/terrastruct/d2#install`);
+    console.error(`Then run again, if so`);
+    if (d2Res.error)
+      console.error(d2Res.error.message);
     return;
   }
 
@@ -234,13 +235,12 @@ async function generateDocs(
 
   console.log("Opening documentation");
 
-  try {
-    spawnSync('python3', ['-c', `import webbrowser; webbrowser.open('${prefix}/docs.svg')`]);
-  }
-  catch (e) {
-    console.log(`Opening the svg failed with python ${e}`);
+  const openRes = spawnSync('python3', ['-c', `import webbrowser; webbrowser.open('file://${process.cwd()}/${prefix}/docs.svg')`]);
+  if (openRes === null || openRes.status !== 0) {
+    console.log(`Opening the svg failed with python`);
+    if (openRes.error)
+      console.error(openRes.error.message);
     return;
   }
 }
-
 

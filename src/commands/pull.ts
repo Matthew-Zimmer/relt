@@ -53,15 +53,14 @@ export async function ensureDirectoryExists(path: string) {
   for (const part of parts) {
     p += `/${part}`;
     if (!existsSync(p)) {
-      mkdir(path, { recursive: true });
-      return;
+      return mkdir(path, { recursive: true });
     }
   }
 }
 
 export async function emptyDirectory(path: string) {
   await rm(path, { recursive: true });
-  await mkdir(path);
+  await mkdir(path, { recursive: true });
 }
 
 export async function pullMockData(reltProject: ReltProject, dss: [SparkSourceDataSet, StructType][]) {
