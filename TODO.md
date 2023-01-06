@@ -26,8 +26,8 @@
 - [ ] Checked constraints
 - [x] Union type expressions
 - [x] struct types
-- [ ] Sort operation
-- [ ] Filter operation
-- [ ] Distinct operation
+- [x] Sort operation
+- [x] Filter operation
+- [x] Distinct operation
 - [ ] Window operation
 - [ ] Repartition operation
