@@ -37,6 +37,9 @@ export function visitTypeExpression<T>(e: TypeExpression, visitor: Visitor<TypeE
           return true;
         case "GroupByTypeExpression":
         case "DropTypeExpression":
+        case "SortTypeExpression":
+        case "DistinctTypeExpression":
+        case "WhereTypeExpression":
           _visit(e.left);
           return true;
         case "TypeIntroExpression":
@@ -89,6 +92,9 @@ export function visitTypedTypeExpression<T>(e: TypedTypeExpression, visitor: Vis
           return true;
         case "TypedGroupByTypeExpression":
         case "TypedDropTypeExpression":
+        case "TypedSortTypeExpression":
+        case "TypedDistinctTypeExpression":
+        case "TypedWhereTypeExpression":
           _visit(e.left);
           return true;
         case "TypedTypeIntroExpression":

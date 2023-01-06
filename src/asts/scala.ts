@@ -102,7 +102,7 @@ export interface SparkBinaryOperationRule {
   kind: "SparkBinaryOperationRule";
   name: string;
   left: string;
-  op: "+";
+  op: "+" | "==" | "!=" | "<=" | ">=" | "<" | ">";
   right: string;
 }
 
@@ -120,6 +120,10 @@ export interface SparkDotRule {
   right: string;
 }
 
+export interface BaseSparkDatasetHandler {
+  show?: boolean;
+}
+
 export type SparkDatasetHandler =
   | SparkDBSourceDatasetHandler
   | SparkFileSourceDatasetHandler
@@ -128,13 +132,17 @@ export type SparkDatasetHandler =
   | SparkMapDatasetHandler
   | SparkGroupDatasetHandler
   | SparkUnionDatasetHandler
+  | SparkSortDatasetHandler
+  | SparkFilterDatasetHandler
+  // | SparkWindowDatasetHandler
+  | SparkDistinctDatasetHandler
 
 export interface DatasetId {
   name: string;
   idx: number;
 }
 
-export interface SparkDBSourceDatasetHandler {
+export interface SparkDBSourceDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkDBSourceDatasetHandler";
   output: DatasetId;
   host: string;
@@ -143,18 +151,16 @@ export interface SparkDBSourceDatasetHandler {
   password: string;
   table: string;
   columns: string[];
-  show?: boolean;
 }
 
-export interface SparkFileSourceDatasetHandler {
+export interface SparkFileSourceDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkFileSourceDatasetHandler";
   output: DatasetId;
   path: string;
   format: 'json';
-  show?: boolean;
 }
 
-export interface SparkJoinDatasetHandler {
+export interface SparkJoinDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkJoinDatasetHandler";
   leftInput: DatasetId;
   rightInput: DatasetId;
@@ -162,40 +168,62 @@ export interface SparkJoinDatasetHandler {
   leftColumn: string;
   rightColumn: string;
   method: string;
-  show?: boolean;
 }
 
-export interface SparkUnionDatasetHandler {
+export interface SparkUnionDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkUnionDatasetHandler";
   leftInput: DatasetId;
   rightInput: DatasetId;
   output: DatasetId;
-  show?: boolean;
 }
 
-export interface SparkDropDatasetHandler {
+export interface SparkDropDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkDropDatasetHandler";
   input: DatasetId;
   output: DatasetId;
   properties: string[];
-  show?: boolean;
 }
 
-export interface SparkMapDatasetHandler {
+export interface SparkMapDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkMapDatasetHandler";
   input: DatasetId;
   output: DatasetId;
   rules: SparkMapRule[];
-  show?: boolean;
 }
 
-export interface SparkGroupDatasetHandler {
+export interface SparkGroupDatasetHandler extends BaseSparkDatasetHandler {
   kind: "SparkGroupDatasetHandler";
   input: DatasetId;
   output: DatasetId;
   column: string;
   aggregations: SparkAggregation[];
-  show?: boolean;
+}
+
+export interface SparkSortDatasetHandler extends BaseSparkDatasetHandler {
+  kind: "SparkSortDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  columns: SparkSortExpression[];
+}
+
+export interface SparkFilterDatasetHandler extends BaseSparkDatasetHandler {
+  kind: "SparkFilterDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  condition: SparkExpression;
+}
+
+export interface SparkWindowDatasetHandler extends BaseSparkDatasetHandler {
+  kind: "SparkWindowDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+}
+
+export interface SparkDistinctDatasetHandler extends BaseSparkDatasetHandler {
+  kind: "SparkDistinctDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  columns: SparkStringExpression[];
 }
 
 export interface SparkDependencyVertex {
@@ -231,6 +259,108 @@ export function isSparkSourceDataSet(h: SparkDatasetHandler): h is SparkSourceDa
     case "SparkJoinDatasetHandler":
     case "SparkMapDatasetHandler":
     case "SparkUnionDatasetHandler":
+    case "SparkSortDatasetHandler":
+    case "SparkFilterDatasetHandler":
+    case "SparkDistinctDatasetHandler":
       return false;
+  }
+}
+
+export type SparkExpression =
+  | SparkBinaryOperatorExpression
+  | SparkLeftUnaryOperatorExpression
+  | SparkRightUnaryOperatorExpression
+  | SparkIdentifierExpression
+  | SparkIntegerExpression
+  | SparkFloatExpression
+  | SparkBooleanExpression
+  | SparkStringExpression
+  | SparkApplicationExpression
+
+export type SparkBinaryOp = "&&" | "||" | "===" | "." | "+" | "-" | "*" | "/" | "<=" | ">=" | "=!=" | "<" | ">";
+export type SparkLeftUnaryOp = "";
+export type SparkRightUnaryOp = "!";
+
+export interface SparkBinaryOperatorExpression<
+  L extends SparkExpression = SparkExpression,
+  O extends SparkBinaryOp = SparkBinaryOp,
+  R extends SparkExpression = SparkExpression,
+> {
+  kind: "SparkBinaryOperatorExpression";
+  left: L;
+  op: O;
+  right: R;
+}
+
+export interface SparkLeftUnaryOperatorExpression<
+  L extends SparkExpression = SparkExpression,
+  O extends SparkLeftUnaryOp = SparkLeftUnaryOp,
+> {
+  kind: "SparkLeftUnaryOperatorExpression";
+  op: O;
+  left: L;
+}
+
+export interface SparkRightUnaryOperatorExpression<
+  O extends SparkRightUnaryOp = SparkRightUnaryOp,
+  R extends SparkExpression = SparkExpression,
+> {
+  kind: "SparkRightUnaryOperatorExpression";
+  op: O;
+  right: R;
+}
+
+export interface SparkApplicationExpression<
+  F extends SparkExpression = SparkExpression,
+  A extends SparkExpression[] = SparkExpression[],
+> {
+  kind: "SparkApplicationExpression";
+  func: F;
+  args: A;
+}
+
+export interface SparkIdentifierExpression<I extends string = string> {
+  kind: "SparkIdentifierExpression";
+  name: I;
+}
+
+export interface SparkIntegerExpression {
+  kind: "SparkIntegerExpression";
+  value: number;
+}
+
+export interface SparkFloatExpression {
+  kind: "SparkFloatExpression";
+  value: number;
+}
+
+export interface SparkBooleanExpression {
+  kind: "SparkBooleanExpression";
+  value: boolean;
+}
+
+export interface SparkStringExpression {
+  kind: "SparkStringExpression";
+  value: string;
+}
+
+// Compound types
+export type SparkDatasetColumnExpression = SparkApplicationExpression<SparkBinaryOperatorExpression<SparkIdentifierExpression, ".", SparkIdentifierExpression<'col'>>, [SparkStringExpression]>;
+export type SparkSortExpression = SparkBinaryOperatorExpression<SparkDatasetColumnExpression, '.', SparkIdentifierExpression<'asc_nulls_first' | 'asc_nulls_last' | 'desc_nulls_first' | 'desc_nulls_last'>>;
+
+// constructors
+export const spark = {
+  expr: {
+    integer(value: number): SparkIntegerExpression { return { kind: "SparkIntegerExpression", value } },
+    float(value: number): SparkFloatExpression { return { kind: "SparkFloatExpression", value } },
+    boolean(value: boolean): SparkBooleanExpression { return { kind: "SparkBooleanExpression", value } },
+    string(value: string): SparkStringExpression { return { kind: "SparkStringExpression", value } },
+    binOp<L extends SparkExpression, O extends SparkBinaryOp, R extends SparkExpression>(left: L, op: O, right: R): SparkBinaryOperatorExpression<L, O, R> { return { kind: "SparkBinaryOperatorExpression", left, op, right } },
+    leftUnaryOp<L extends SparkExpression, O extends SparkLeftUnaryOp>(left: L, op: O): SparkLeftUnaryOperatorExpression<L, O> { return { kind: "SparkLeftUnaryOperatorExpression", left, op } },
+    rightUnaryOp<O extends SparkRightUnaryOp, R extends SparkExpression>(op: O, right: R): SparkRightUnaryOperatorExpression<O, R> { return { kind: "SparkRightUnaryOperatorExpression", op, right } },
+    identifier<I extends string>(name: I): SparkIdentifierExpression<I> { return { kind: "SparkIdentifierExpression", name } },
+    app<F extends SparkExpression, A extends SparkExpression[]>(func: F, ...args: A): SparkApplicationExpression<F, A> { return { kind: "SparkApplicationExpression", func, args } },
+    dsCol(name: string, col: string): SparkDatasetColumnExpression { return this.app(this.binOp(this.identifier(name), '.', this.identifier('col')), this.string(col)) },
+    sort(name: string, col: string, order: 'asc' | 'desc', nulls: 'first' | 'last'): SparkSortExpression { return this.binOp(this.dsCol(name, col), '.', this.identifier(`${order}_nulls_${nulls}`)) },
   }
 }

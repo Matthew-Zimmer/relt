@@ -124,6 +124,29 @@ export function evaluate(e: TypedExpression, scope: Scope): [Value, Scope] {
       if (left !== null && left !== undefined) return [left, scope];
       return [evaluate(e.right, scope)[0], scope];
     }
+    case "TypedCmpExpression": {
+      const [left] = evaluate(e.left, scope);
+      const [right] = evaluate(e.left, scope);
+
+      const value: Value = (() => {
+        switch (e.op) {
+          case "!=":
+            return left !== right;
+          case "==":
+            return left !== right;
+          case "<":
+            return (left as number) < (right as number);
+          case ">":
+            return (left as number) > (right as number);
+          case "<=":
+            return (left as number) <= (right as number);
+          case ">=":
+            return (left as number) >= (right as number);
+        }
+      })();
+
+      return [, scope];
+    }
     case "TypedArrayExpression": {
       const values = e.values.map(x => evaluate(x, scope)[0]);
       return [values, scope];

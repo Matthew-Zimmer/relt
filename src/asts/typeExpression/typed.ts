@@ -17,6 +17,9 @@ export type TypedTypeExpression<T extends Type = Type> =
   | TypedPrimaryKeyTypeExpression
   | TypedArrayTypeExpression
   | TypedGroupByTypeExpression
+  | TypedSortTypeExpression
+  | TypedWhereTypeExpression
+  | TypedDistinctTypeExpression
 
 export type TypedStructLikeTypeExpression =
   | TypedIdentifierTypeExpression<StructType>
@@ -26,6 +29,9 @@ export type TypedStructLikeTypeExpression =
   | TypedUnionTypeExpression
   | TypedTypeIntroExpression<StructType>
   | TypedGroupByTypeExpression
+  | TypedSortTypeExpression
+  | TypedWhereTypeExpression
+  | TypedDistinctTypeExpression
 
 export interface TypedTypeIntroExpression<T extends Type = Type> {
   kind: "TypedTypeIntroExpression";
@@ -145,3 +151,25 @@ export interface TypedAggProperty {
   name: string;
   value: TypedExpression;
 }
+
+export interface TypedSortTypeExpression {
+  kind: "TypedSortTypeExpression";
+  left: TypedStructLikeTypeExpression;
+  columns: { name: string, order: 'asc' | 'desc', nulls: 'first' | 'last' }[];
+  type: StructType;
+}
+
+export interface TypedWhereTypeExpression {
+  kind: "TypedWhereTypeExpression";
+  left: TypedStructLikeTypeExpression;
+  condition: TypedExpression;
+  type: StructType;
+}
+
+export interface TypedDistinctTypeExpression {
+  kind: "TypedDistinctTypeExpression";
+  left: TypedStructLikeTypeExpression;
+  columns: string[];
+  type: StructType;
+}
+

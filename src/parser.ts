@@ -13,7 +13,7 @@ export const parser = generate(`
 
   identifier 
     = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    ! { return ["type", "let", "func", "fk", "pk", "declare"].includes(chars[0] + chars[1].join('')) }
+    ! { return ["type", "let", "func", "fk", "pk", "declare", "sort", "by", "distinct", "on", "where"].includes(chars[0] + chars[1].join('')) }
     { return chars[0] + chars[1].join('') }
 
   free_identifier
@@ -103,14 +103,28 @@ export const parser = generate(`
     { return { kind: "RuleTypeProperty", name, value } }
 
   drop_type_expression
-    = left: group_by_type_expression _ "drop" _ properties: (head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] })
+    = left: sort_type_expression _ "drop" _ properties: (head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] })
     { return { kind: "DropTypeExpression", left, properties } }
+    / sort_type_expression
+
+  sort_type_expression
+    = "sort" _ left: distinct_type_expression _ "by" _ columns: (head: sort_column tail: (_ "," _ @sort_column)* (_ ",")? { return [head, ...tail] })
+    { return { kind: "SortTypeExpression", left, columns } }
+    / distinct_type_expression
+
+  sort_column
+    = name: identifier extra: (_ order: ("asc" / "desc") nulls: (_ @("first" / "last"))? { return { order, nulls: nulls ?? 'first' } })?
+    { return { name, ...(extra !== null ? extra : { order: 'asc', nulls: 'first' }) } }
+
+  distinct_type_expression
+    = "distinct" _ left: group_by_type_expression columns: (_ "on" _ @(head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] }))?
+    { return { kind: "DistinctTypeExpression", left, columns: columns ?? [] } }
     / group_by_type_expression
 
   group_by_type_expression
-    = "group" __ left: join_type_expression _ "by" __ column: identifier __ "agg" _ aggregations: agg_properties
+    = "group" __ left: where_type_expression _ "by" __ column: identifier __ "agg" _ aggregations: agg_properties
     { return { kind: "GroupByTypeExpression", left, column, aggregations } }
-    / join_type_expression
+    / where_type_expression
 
   agg_properties
     = "{" _ head: agg_property tail: (_ "," _ @agg_property)* _ ("," _)? "}"
@@ -119,6 +133,13 @@ export const parser = generate(`
   agg_property
     = name: identifier _ "=" _ value: expression
     { return { kind: "AggProperty", name, value } }
+
+  where_type_expression
+    = head:join_type_expression tail:(_ "where" _ condition:expression { return {
+      kind: 'WhereTypeExpression',
+      condition,
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   join_type_expression
     = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 columns: (_ "on" _ @(leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ))? { return {
@@ -218,8 +239,16 @@ export const parser = generate(`
     { return { kind: "BlockExpression", values } }
 
   default_expression
-    = head:add_expression tail:(_ op: ("??") _ right:add_expression _ { return {
+    = head:cmp_expression tail:(_ op: ("??") _ right:cmp_expression _ { return {
       kind: 'DefaultExpression',
+      op,
+      right,
+  }})*
+  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  cmp_expression
+    = head:add_expression tail:(_ op: ("==" / "!=" / "<=" / ">=" / "<" / ">") _ right:add_expression _ { return {
+      kind: 'CmpExpression',
       op,
       right,
   }})*

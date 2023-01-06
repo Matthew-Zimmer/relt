@@ -1,5 +1,5 @@
 import { nl, line, block, Line } from '../asts/line';
-import { ScalaType, ScalaCaseClass, SparkProject, SparkDatasetHandler, DatasetId, SparkMapRule, SparkAggregation } from '../asts/scala';
+import { ScalaType, ScalaCaseClass, SparkProject, SparkDatasetHandler, DatasetId, SparkMapRule, SparkAggregation, SparkExpression } from '../asts/scala';
 
 export function generateScalaType(t: ScalaType): string {
   switch (t.kind) {
@@ -161,6 +161,41 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
         ),
         line(`).as[${h.output.name}]`),
       ]);
+    case "SparkSortDatasetHandler":
+      return derivedHandler([h.input], [
+        line(`ds0.sort(${h.columns.map(generateSparkExpression).join(", ")}).as[${h.output.name}]`),
+      ]);
+    case "SparkFilterDatasetHandler":
+      return derivedHandler([h.input], [
+        line(`ds0.filter(${generateSparkExpression(h.condition)}).as[${h.output.name}]`),
+      ]);
+    case "SparkDistinctDatasetHandler":
+      return derivedHandler([h.input], [
+        line(`ds0.dropDuplicates(${h.columns.map(generateSparkExpression).join(', ')}).as[${h.output.name}]`),
+      ]);
+  }
+}
+
+export function generateSparkExpression(e: SparkExpression): string {
+  switch (e.kind) {
+    case "SparkIntegerExpression":
+      return `${e.value}`;
+    case "SparkBooleanExpression":
+      return `${e.value}`;
+    case "SparkFloatExpression":
+      return `${e.value.toFixed(20)}`;
+    case "SparkStringExpression":
+      return `"${e.value}"`;
+    case "SparkIdentifierExpression":
+      return e.name;
+    case "SparkBinaryOperatorExpression":
+      return `(${generateSparkExpression(e.left)}${e.op}${generateSparkExpression(e.right)})`;
+    case "SparkLeftUnaryOperatorExpression":
+      return `(${generateSparkExpression(e.left)}${e.op})`;
+    case "SparkRightUnaryOperatorExpression":
+      return `(${e.op}${generateSparkExpression(e.right)})`;
+    case "SparkApplicationExpression":
+      return `(${generateSparkExpression(e.func)}(${e.args.map(generateSparkExpression).join(", ")}))`
   }
 }
 

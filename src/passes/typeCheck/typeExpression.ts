@@ -4,6 +4,8 @@ import { throws } from "../../utils";
 import { Context, typeEquals } from "./utils";
 import { typeCheckExpression } from "./expression";
 import { AggProperty, JoinTypeExpression, RuleProperty, TypeExpression } from "../../asts/typeExpression/untyped";
+import { Expression } from "../../asts/expression/untyped";
+import { TypedExpression } from "../../asts/expression/typed";
 
 function isStructLikeTypeExpression(e: TypedTypeExpression): e is TypedStructLikeTypeExpression {
   return e.type.kind === 'StructType';
@@ -194,14 +196,11 @@ function sub(e: TypedTypeExpression, oldName: string, newName: string): TypedTyp
       const value = sub(e.value, oldName, newName);
       return { kind: "TypedTypeIntroExpression", name: e.name, value, type: subType(e.type) };
     }
-    case "TypedJoinTypeExpression": {
+    case "TypedJoinTypeExpression":
+    case "TypedUnionTypeExpression": {
       const left = sub(e.left, oldName, newName) as TypedStructLikeTypeExpression;
       const right = sub(e.right, oldName, newName) as TypedStructLikeTypeExpression;
       return { ...e, left, right, type: subType(e.type) as StructType };
-    }
-    case "TypedDropTypeExpression": {
-      const left = sub(e.left, oldName, newName) as TypedStructLikeTypeExpression;
-      return { ...e, left, type: subType(e.type) as StructType };
     }
     case "TypedWithTypeExpression": {
       const left = sub(e.left, oldName, newName) as TypedStructLikeTypeExpression;
@@ -217,12 +216,11 @@ function sub(e: TypedTypeExpression, oldName: string, newName: string): TypedTyp
       });
       return { ...e, rules, left, type: subType(e.type) as StructType };
     }
-    case "TypedUnionTypeExpression": {
-      const left = sub(e.left, oldName, newName) as TypedStructLikeTypeExpression;
-      const right = sub(e.right, oldName, newName) as TypedStructLikeTypeExpression;
-      return { ...e, left, right, type: subType(e.type) as StructType };
-    }
-    case "TypedGroupByTypeExpression": {
+    case "TypedGroupByTypeExpression":
+    case "TypedSortTypeExpression":
+    case "TypedWhereTypeExpression":
+    case "TypedDistinctTypeExpression":
+    case "TypedDropTypeExpression": {
       const left = sub(e.left, oldName, newName) as TypedStructLikeTypeExpression;
       return { ...e, left, type: subType(e.type) as StructType };
     }
@@ -267,6 +265,15 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
       }
     }
     return inLocalContext(() => aggs.map(typeCheckAgg));
+  };
+
+  const typeCheckExpressionUnder = (e: Expression, t: StructType): TypedExpression => {
+    let eCtx = makeInitialAggExpressionContext(t, initialExpressionContext ?? {});
+    return inLocalContext(() => typeCheckExpression(e, eCtx)[0]);
+  };
+
+  const checkColumnsExist = (t: StructType, columns: string[]): string[] => {
+    return columns.map(c => propertyLookup(t, c) === undefined ? `Cannot sort on ${c} since not exist on type ${t.name}` : '').filter(x => x !== '');
   };
 
   const typeCheck = (e: TypeExpression): TypedTypeExpression => {
@@ -340,7 +347,7 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
       case "DropTypeExpression": {
         const left = typeCheck(e.left);
 
-        canOperateLikeStruct(left, 'Left side of Join expression');
+        canOperateLikeStruct(left, 'Left side of Drop expression');
 
         const type = dropType(left.type, e.properties);
         return { kind: "TypedDropTypeExpression", left, properties: e.properties, type };
@@ -348,7 +355,7 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
       case "WithTypeExpression": {
         const left = typeCheck(e.left);
 
-        canOperateLikeStruct(left, 'Left side of Join expression');
+        canOperateLikeStruct(left, 'Left side of With expression');
 
         const rules = typeCheckRuleProperties(left.type, e.rules);
 
@@ -359,8 +366,8 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
         const left = typeCheck(e.left);
         const right = typeCheck(e.right);
 
-        canOperateLikeStruct(left, 'Left side of Join expression');
-        canOperateLikeStruct(right, 'Right side of Join expression');
+        canOperateLikeStruct(left, 'Left side of Union expression');
+        canOperateLikeStruct(right, 'Right side of Union expression');
 
         const type = unionStructType(left.type, right.type);
         return { kind: "TypedUnionTypeExpression", left, right, type };
@@ -368,12 +375,49 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
       case "GroupByTypeExpression": {
         const left = typeCheck(e.left);
 
-        canOperateLikeStruct(left, 'Left side of Join expression');
+        canOperateLikeStruct(left, 'Left side of Group expression');
 
         const aggregations = typeCheckAggProperties(left.type, e.aggregations);
 
         const type = groupByType(left.type, e.column, aggregations);
         return { kind: "TypedGroupByTypeExpression", left, column: e.column, aggregations, type };
+      }
+      case "SortTypeExpression": {
+        const left = typeCheck(e.left);
+
+        canOperateLikeStruct(left, 'Left side of Sort expression'); // Its really the right side?
+
+        const errors = checkColumnsExist(left.type, e.columns.map(x => x.name));
+        if (errors.length !== 0)
+          throws(`Error: ${errors.join(' and\n')}`)
+
+        const type = structType(`Relt_Sorted${left.type.name}${e.columns.map(x => `${x.name}${x.order}${x.nulls}`).join('_')}`, left.type.properties);
+        return { kind: "TypedSortTypeExpression", left, columns: e.columns, type };
+      }
+      case "DistinctTypeExpression": {
+        const left = typeCheck(e.left);
+
+        canOperateLikeStruct(left, 'Left side of Distinct expression'); // Its really the right side?
+
+        const errors = checkColumnsExist(left.type, e.columns);
+        if (errors.length !== 0)
+          throws(`Error: ${errors.join(' and\n')}`)
+
+        const type = structType(`Relt_Distinct${left.type.name}${e.columns.join('_')}`, left.type.properties);
+        return { kind: "TypedDistinctTypeExpression", left, columns: e.columns, type };
+      }
+      case "WhereTypeExpression": {
+        const left = typeCheck(e.left);
+
+        canOperateLikeStruct(left, 'Left side of Join expression');// Its really the right side?
+
+        const condition = typeCheckExpressionUnder(e.condition, left.type);
+
+        if (condition.type.kind !== 'BooleanType')
+          throws(`Condition of where type needs to be a boolean, got: (${condition.type.kind})`);
+
+        const type = structType(`Relt_Condition${left.type.name}`, left.type.properties); // TODO need way to extract what columns are filtered
+        return { kind: "TypedWhereTypeExpression", left, condition, type };
       }
     }
   }

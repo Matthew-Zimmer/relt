@@ -155,29 +155,19 @@ export function namedTypeDependencyGraph(typeExpressions: TypedTypeExpression[])
           graph[e.type.name] = [];
         return true;
       }
+      case "TypedUnionTypeExpression":
       case "TypedJoinTypeExpression": {
         walk(e.left);
         walk(e.right);
         graph[e.type.name] = [e.left.type.name, e.right.type.name];
         return true;
       }
-      case "TypedDropTypeExpression": {
-        walk(e.left);
-        graph[e.type.name] = [e.left.type.name];
-        return true;
-      }
-      case "TypedWithTypeExpression": {
-        walk(e.left);
-        graph[e.type.name] = [e.left.type.name];
-        return true;
-      }
-      case "TypedUnionTypeExpression": {
-        walk(e.left);
-        walk(e.right);
-        graph[e.type.name] = [e.left.type.name, e.right.type.name];
-        return true;
-      }
-      case "TypedGroupByTypeExpression": {
+      case "TypedDropTypeExpression":
+      case "TypedWithTypeExpression":
+      case "TypedGroupByTypeExpression":
+      case "TypedSortTypeExpression":
+      case "TypedDistinctTypeExpression":
+      case "TypedWhereTypeExpression": {
         walk(e.left);
         graph[e.type.name] = [e.left.type.name];
         return true;

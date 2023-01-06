@@ -15,15 +15,7 @@ type Sale = {
   amountDollars: float,
 }
 
-type EmployeeSale = (
-  Employee 
-  left join (
-    group Sale by employeeId agg {
-      sales = collect(this),
-    })) 
-with {
-  sales = sales ?? [],
-}
+type UniqueEmployee = (sort distinct Employee on lastName by id asc) where id == 0
 
 func source(x: Employee) {
   {

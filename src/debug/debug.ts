@@ -89,6 +89,7 @@ export function generateExpressionUntyped(e: Expression): Line[] {
       ];
     case "AddExpression":
     case "DefaultExpression":
+    case "CmpExpression":
       return [
         ...generateExpressionUntyped(e.left),
         block(
@@ -219,6 +220,31 @@ export function generateTypeExpressionUntyped(e: TypeExpression): Line[] {
         ),
         line('}')
       ];
+    case "SortTypeExpression":
+      return [
+        line(`sort`),
+        ...generateTypeExpressionUntyped(e.left),
+        line(`by ${e.columns.map(x => `${x.name} ${x.order} ${x.nulls ?? 'last'}`)}`),
+      ];
+    case "WhereTypeExpression":
+      return [
+        ...generateTypeExpressionUntyped(e.left),
+        line(`where (`),
+        block(
+          ...generateExpressionUntyped(e.condition),
+        ),
+        line(`)`)
+      ];
+    case "DistinctTypeExpression":
+      return [
+        line(`distinct`),
+        ...generateTypeExpressionUntyped(e.left),
+        line(`on (`),
+        block(
+          ...e.columns.map(x => line(`${x},`))
+        ),
+        line(')')
+      ];
   }
 }
 
@@ -235,6 +261,7 @@ export function generateSourceCodeUntyped(e: TopLevelExpression): Line[] {
     case "BlockExpression":
     case "ApplicationExpression":
     case "AddExpression":
+    case "CmpExpression":
     case "DefaultExpression":
     case "ArrayExpression":
     case "DotExpression":
@@ -305,6 +332,7 @@ export function generateExpressionTyped(e: TypedExpression): Line[] {
         line(`) : ${generateType(e.type)}`),
       ];
     case "TypedAddExpression":
+    case "TypedCmpExpression":
     case "TypedDefaultExpression":
       return [
         ...generateExpressionTyped(e.left),
@@ -437,8 +465,9 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
       ];
     case "TypedGroupByTypeExpression":
       return [
+        line(`group`),
         ...generateTypeExpressionTyped(e.left),
-        line(`group by ${e.column} agg {`),
+        line(`by ${e.column} agg {`),
         block(
           line(`:type ${generateType(e.type)}`),
         ),
@@ -453,6 +482,31 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
           })
         ),
         line('}')
+      ];
+    case "TypedSortTypeExpression":
+      return [
+        line(`sort`),
+        ...generateTypeExpressionTyped(e.left),
+        line(`by ${e.columns.map(x => `${x.name} ${x.order} ${x.nulls ?? 'last'}`)}`),
+      ];
+    case "TypedWhereTypeExpression":
+      return [
+        ...generateTypeExpressionTyped(e.left),
+        line(`where (`),
+        block(
+          ...generateExpressionTyped(e.condition),
+        ),
+        line(`)`)
+      ];
+    case "TypedDistinctTypeExpression":
+      return [
+        line(`distinct`),
+        ...generateTypeExpressionTyped(e.left),
+        line(`on (`),
+        block(
+          ...e.columns.map(x => line(`${x},`))
+        ),
+        line(')')
       ];
   }
 }
@@ -471,6 +525,7 @@ export function generateSourceCodeTyped(e: TypedExpression | TypedTypeExpression
     case "TypedApplicationExpression":
     case "TypedAddExpression":
     case "TypedDefaultExpression":
+    case "TypedCmpExpression":
     case "TypedArrayExpression":
     case "TypedDotExpression":
       return generateExpressionTyped(e);
@@ -489,6 +544,9 @@ export function generateSourceCodeTyped(e: TypedExpression | TypedTypeExpression
     case "TypedPrimaryKeyTypeExpression":
     case "TypedArrayTypeExpression":
     case "TypedGroupByTypeExpression":
+    case "TypedSortTypeExpression":
+    case "TypedWhereTypeExpression":
+    case "TypedDistinctTypeExpression":
       return generateTypeExpressionTyped(e);
   }
 }

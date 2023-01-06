@@ -138,6 +138,114 @@ export function typeCheckExpression(e: Expression, ctx: Context): [TypedExpressi
 
       throws(`Error: Cannot ${e.op} ${left.type.kind} with ${right.type.kind}`);
     }
+    case "CmpExpression": {
+      const [left] = typeCheckExpression(e.left, ctx);
+      const [right] = typeCheckExpression(e.right, ctx);
+
+      switch (e.op) {
+        case "==":
+        case "!=":
+          switch (left.type.kind) {
+            case "FloatType":
+              switch (right.type.kind) {
+                case "FloatType":
+                  return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+              }
+              break;
+            case "IntegerType":
+              switch (right.type.kind) {
+                case "IntegerType":
+                  return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                case "PrimaryKeyType":
+                  switch (right.type.of.kind) {
+                    case "IntegerType":
+                      return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                  }
+              }
+              break;
+            case "StringType":
+              switch (right.type.kind) {
+                case "StringType":
+                  return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                case "PrimaryKeyType":
+                  switch (right.type.of.kind) {
+                    case "StringType":
+                      return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                  }
+              }
+              break;
+            case "BooleanType":
+              switch (right.type.kind) {
+                case "BooleanType":
+                  return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+              }
+              break;
+            case "PrimaryKeyType":
+              switch (left.type.of.kind) {
+                case "IntegerType":
+                  switch (right.type.kind) {
+                    case "IntegerType":
+                      return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                    case "PrimaryKeyType":
+                      switch (right.type.of.kind) {
+                        case "IntegerType":
+                          return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                      }
+                  }
+                case "StringType":
+                  switch (right.type.kind) {
+                    case "StringType":
+                      return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                    case "PrimaryKeyType":
+                      switch (right.type.of.kind) {
+                        case "StringType":
+                          return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                      }
+                  }
+              }
+          }
+          break;
+        case "<":
+        case ">":
+        case ">=":
+        case "<=":
+          switch (left.type.kind) {
+            case "FloatType":
+              switch (right.type.kind) {
+                case "FloatType":
+                  return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+              }
+              break;
+            case "IntegerType":
+              switch (right.type.kind) {
+                case "IntegerType":
+                  return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                case "PrimaryKeyType":
+                  switch (right.type.of.kind) {
+                    case "IntegerType":
+                      return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                  }
+              }
+              break;
+            case "PrimaryKeyType":
+              switch (left.type.of.kind) {
+                case "IntegerType":
+                  switch (right.type.kind) {
+                    case "IntegerType":
+                      return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                    case "PrimaryKeyType":
+                      switch (right.type.of.kind) {
+                        case "IntegerType":
+                          return [{ kind: "TypedCmpExpression", left, op: e.op, right, type: booleanType() }, ctx];
+                      }
+                  }
+              }
+          }
+          break;
+      }
+
+      throws(`Error: Cannot ${e.op} ${left.type.kind} with ${right.type.kind}`);
+    }
     case "DefaultExpression": {
       const [left] = typeCheckExpression(e.left, ctx);
 

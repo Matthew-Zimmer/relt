@@ -16,6 +16,9 @@ export type TypeExpression =
   | PrimaryKeyTypeExpression
   | ArrayTypeExpression
   | GroupByTypeExpression
+  | SortTypeExpression
+  | DistinctTypeExpression
+  | WhereTypeExpression
 
 export interface TypeIntroExpression {
   kind: "TypeIntroExpression";
@@ -119,4 +122,22 @@ export interface AggProperty {
   kind: "AggProperty";
   name: string;
   value: Expression;
+}
+
+export interface SortTypeExpression {
+  kind: "SortTypeExpression";
+  left: TypeExpression;
+  columns: { name: string, order: 'asc' | 'desc', nulls: 'first' | 'last' }[];
+}
+
+export interface DistinctTypeExpression {
+  kind: "DistinctTypeExpression";
+  left: TypeExpression;
+  columns: string[];
+}
+
+export interface WhereTypeExpression {
+  kind: "WhereTypeExpression";
+  left: WhereTypeExpression;
+  condition: Expression;
 }

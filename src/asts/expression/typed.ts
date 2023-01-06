@@ -1,4 +1,4 @@
-import { ArrayType, FunctionType, OptionalType, StructType, Type } from "../type";
+import { ArrayType, BooleanType, FunctionType, OptionalType, StructType, Type } from "../type";
 import { Parameter } from "./parameter";
 
 export type TypedExpression<T extends Type = Type> =
@@ -16,6 +16,7 @@ export type TypedExpression<T extends Type = Type> =
   | TypedAddExpression<T>
   | TypedDefaultExpression<T>
   | TypedDotExpression<T>
+  | TypedCmpExpression
 
 export interface TypedLetExpression<T extends Type = Type> {
   kind: "TypedLetExpression";
@@ -87,6 +88,14 @@ export interface TypedAddExpression<T extends Type = Type> {
   op: "+";
   right: TypedExpression;
   type: T;
+}
+
+export interface TypedCmpExpression {
+  kind: "TypedCmpExpression";
+  left: TypedExpression;
+  op: "==" | "!=" | "<=" | ">=" | "<" | ">";
+  right: TypedExpression;
+  type: BooleanType;
 }
 
 export interface TypedDefaultExpression<T extends Type = Type> {

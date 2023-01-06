@@ -1,5 +1,5 @@
 import { TypedExpression, TypedIdentifierExpression } from "../asts/expression/typed";
-import { DatasetId, ScalaCaseClass, ScalaType, SparkAggregation, SparkDatasetHandler, SparkDependencyVertex, SparkMapRule, SparkProject } from "../asts/scala";
+import { DatasetId, ScalaCaseClass, ScalaType, spark, SparkAggregation, SparkDatasetHandler, SparkDependencyVertex, SparkExpression, SparkMapRule, SparkProject } from "../asts/scala";
 import { LibraryDeclaration } from "../asts/topLevel";
 import { arrayType, functionType, optionalType, StructType, Type, unitType } from "../asts/type";
 import { TypedAggProperty, TypedGroupByTypeExpression, TypedJoinTypeExpression, TypedRuleProperty, TypedRuleTypeProperty, TypedRuleValueProperty, TypedStructLikeTypeExpression, TypedTypeExpression, TypedWithTypeExpression } from "../asts/typeExpression/typed";
@@ -189,25 +189,20 @@ function desugar(expressions: TypedTypeExpression[]): TypedTypeExpression[] {
         const of = walk(e.of);
         return { ...e, of };
       }
-      case "TypedJoinTypeExpression": {
-        const left = walk(e.left) as TypedStructLikeTypeExpression;
-        const right = walk(e.right) as TypedStructLikeTypeExpression;
-        return { ...e, left, right };
-      }
-      case "TypedDropTypeExpression": {
-        const left = walk(e.left) as TypedStructLikeTypeExpression;
-        return { ...e, left };
-      }
+      case "TypedJoinTypeExpression":
       case "TypedUnionTypeExpression": {
         const left = walk(e.left) as TypedStructLikeTypeExpression;
         const right = walk(e.right) as TypedStructLikeTypeExpression;
         return { ...e, left, right };
       }
-      case "TypedGroupByTypeExpression": {
+      case "TypedGroupByTypeExpression":
+      case "TypedDropTypeExpression":
+      case "TypedWhereTypeExpression":
+      case "TypedDistinctTypeExpression":
+      case "TypedSortTypeExpression": {
         const left = walk(e.left) as TypedStructLikeTypeExpression;
         return { ...e, left };
       }
-
       case "TypedWithTypeExpression": {
         const left = walk(e.left) as TypedStructLikeTypeExpression;
         return desugarImplicitTypeRules({ ...e, left });
@@ -409,6 +404,13 @@ export function deriveSparkProject(
           rules.push({ kind: "SparkBinaryOperationRule", name, left, op: e.op, right });
           return name;
         }
+        case "TypedCmpExpression": {
+          const left = imp(e.left);
+          const right = imp(e.right);
+          const name = `_v${c++}`;
+          rules.push({ kind: "SparkBinaryOperationRule", name, left, op: e.op, right });
+          return name;
+        }
         case "TypedDefaultExpression": {
           const left = imp(e.left);
           const right = imp(e.right);
@@ -552,6 +554,45 @@ export function deriveSparkProject(
         });
         return true;
       }
+      case "TypedSortTypeExpression": {
+        walk(e.left);
+        addStructType(e.type);
+        datasetHandlers.push({
+          kind: "SparkSortDatasetHandler",
+          input: datasetIdFor(e.left.type),
+          output: datasetIdFor(e.type),
+          columns: e.columns.map(x => spark.expr.sort('ds0', x.name, x.order, x.nulls)),
+        });
+        return true;
+      }
+      case "TypedWhereTypeExpression": {
+        walk(e.left);
+        addStructType(e.type);
+        datasetHandlers.push({
+          kind: "SparkFilterDatasetHandler",
+          input: datasetIdFor(e.left.type),
+          output: datasetIdFor(e.type),
+          condition: convertExpressionToSpark(e.condition, {
+            SparkIdentifierExpression: x => (
+              e.left.type.properties.find(y => y.name === x.name) === undefined
+                ? x
+                : spark.expr.dsCol('ds0', x.name)
+            )
+          }),
+        });
+        return true;
+      }
+      case "TypedDistinctTypeExpression": {
+        walk(e.left);
+        addStructType(e.type);
+        datasetHandlers.push({
+          kind: "SparkDistinctDatasetHandler",
+          input: datasetIdFor(e.left.type),
+          output: datasetIdFor(e.type),
+          columns: e.columns.map(spark.expr.string),
+        });
+        return true;
+      }
     }
   }
 
@@ -572,4 +613,45 @@ export function deriveSparkProject(
     vertices: deriveSparkVertices(dg),
     libraries: libs,
   };
+}
+
+function convertExpressionToSpark(e: TypedExpression, rules: { [K in SparkExpression['kind']]?: (e: SparkExpression & { kind: K }) => SparkExpression }): SparkExpression {
+  // @ts-expect-error
+  const applyRule = (e: SparkExpression) => (rules?.[e.kind] ?? (x => x))(e);
+
+  const imp = (e: TypedExpression): SparkExpression => {
+    return applyRule((() => {
+      switch (e.kind) {
+        case "TypedIntegerExpression":
+          return spark.expr.integer(e.value);
+        case "TypedFloatExpression":
+          return spark.expr.float(e.value);
+        case "TypedBooleanExpression":
+          return spark.expr.boolean(e.value);
+        case "TypedStringExpression":
+          return spark.expr.string(e.value);
+        case "TypedIdentifierExpression":
+          return spark.expr.identifier(e.name);
+        case "TypedApplicationExpression":
+          return spark.expr.app(imp(e.func), ...e.args.map(imp));
+        case "TypedAddExpression":
+          return spark.expr.binOp(imp(e.left), e.op, imp(e.right));
+        case "TypedCmpExpression":
+          return spark.expr.binOp(imp(e.left), ({ "==": "===", "!=": "=!=", "<=": "<=", ">=": ">=", "<": "<", ">": ">" } as const)[e.op], imp(e.right));
+        case "TypedDefaultExpression":
+          return spark.expr.app(spark.expr.binOp(imp(e.left), '.', spark.expr.identifier('getOrElse')), imp(e.right));
+        case "TypedDotExpression":
+          return spark.expr.binOp(imp(e.left), '.', imp(e.right));
+
+        case "TypedBlockExpression":
+        case "TypedLetExpression":
+        case "TypedArrayExpression":
+        case "TypedObjectExpression":
+        case "TypedFunctionExpression":
+          throws(`Cannot convert ${e.kind} to a spark expression`);
+      }
+    })());
+  }
+
+  return imp(e);
 }

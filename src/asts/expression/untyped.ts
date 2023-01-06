@@ -15,6 +15,7 @@ export type Expression =
   | DefaultExpression
   | ArrayExpression
   | DotExpression
+  | CmpExpression
 
 export interface LetExpression {
   kind: "LetExpression";
@@ -74,6 +75,13 @@ export interface AddExpression {
   kind: "AddExpression";
   left: Expression;
   op: "+";
+  right: Expression;
+}
+
+export interface CmpExpression {
+  kind: "CmpExpression";
+  left: Expression;
+  op: "==" | "!=" | "<=" | ">=" | "<" | ">";
   right: Expression;
 }
 
