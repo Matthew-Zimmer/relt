@@ -245,6 +245,11 @@ export function generateTypeExpressionUntyped(e: TypeExpression): Line[] {
         ),
         line(')')
       ];
+    case "UsingTypeExpression":
+      return [
+        ...generateTypeExpressionUntyped(e.left),
+        line(`using ${e.count}`),
+      ];
   }
 }
 
@@ -486,6 +491,9 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
     case "TypedSortTypeExpression":
       return [
         line(`sort`),
+        block(
+          line(`:type ${generateType(e.type)}`),
+        ),
         ...generateTypeExpressionTyped(e.left),
         line(`by ${e.columns.map(x => `${x.name} ${x.order} ${x.nulls ?? 'last'}`)}`),
       ];
@@ -494,6 +502,9 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
         ...generateTypeExpressionTyped(e.left),
         line(`where (`),
         block(
+          line(`:type ${generateType(e.type)}`),
+        ),
+        block(
           ...generateExpressionTyped(e.condition),
         ),
         line(`)`)
@@ -501,12 +512,23 @@ export function generateTypeExpressionTyped(e: TypedTypeExpression): Line[] {
     case "TypedDistinctTypeExpression":
       return [
         line(`distinct`),
+        block(
+          line(`:type ${generateType(e.type)}`),
+        ),
         ...generateTypeExpressionTyped(e.left),
         line(`on (`),
         block(
           ...e.columns.map(x => line(`${x},`))
         ),
         line(')')
+      ];
+    case "TypedUsingTypeExpression":
+      return [
+        ...generateTypeExpressionTyped(e.left),
+        line(`using ${e.count}`),
+        block(
+          line(`:type ${generateType(e.type)}`),
+        ),
       ];
   }
 }
@@ -547,6 +569,7 @@ export function generateSourceCodeTyped(e: TypedExpression | TypedTypeExpression
     case "TypedSortTypeExpression":
     case "TypedWhereTypeExpression":
     case "TypedDistinctTypeExpression":
+    case "TypedUsingTypeExpression":
       return generateTypeExpressionTyped(e);
   }
 }

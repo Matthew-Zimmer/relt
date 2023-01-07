@@ -13,7 +13,7 @@ export const parser = generate(`
 
   identifier 
     = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    ! { return ["type", "let", "func", "fk", "pk", "declare", "sort", "by", "distinct", "on", "where"].includes(chars[0] + chars[1].join('')) }
+    ! { return ["type", "let", "func", "fk", "pk", "declare", "sort", "by", "distinct", "on", "where", "using"].includes(chars[0] + chars[1].join('')) }
     { return chars[0] + chars[1].join('') }
 
   free_identifier
@@ -70,7 +70,12 @@ export const parser = generate(`
     { return { kind: "TypeIntroExpression", name, value } }
 
   type_expression
-    = union_type_expression
+    = using_type_expression
+
+  using_type_expression
+    = left: union_type_expression _ "using" _ count: integer_expression
+    { return { kind: "UsingTypeExpression", left, count: count.value } }
+    / union_type_expression
 
   union_type_expression
     = head:with_type_expression tail:(_ "union" _ right: with_type_expression { return {

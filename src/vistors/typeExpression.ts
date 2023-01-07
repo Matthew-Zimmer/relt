@@ -40,6 +40,7 @@ export function visitTypeExpression<T>(e: TypeExpression, visitor: Visitor<TypeE
         case "SortTypeExpression":
         case "DistinctTypeExpression":
         case "WhereTypeExpression":
+        case "UsingTypeExpression":
           _visit(e.left);
           return true;
         case "TypeIntroExpression":
@@ -95,6 +96,7 @@ export function visitTypedTypeExpression<T>(e: TypedTypeExpression, visitor: Vis
         case "TypedSortTypeExpression":
         case "TypedDistinctTypeExpression":
         case "TypedWhereTypeExpression":
+        case "TypedUsingTypeExpression":
           _visit(e.left);
           return true;
         case "TypedTypeIntroExpression":

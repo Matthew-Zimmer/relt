@@ -20,6 +20,7 @@ export type TypedTypeExpression<T extends Type = Type> =
   | TypedSortTypeExpression
   | TypedWhereTypeExpression
   | TypedDistinctTypeExpression
+  | TypedUsingTypeExpression
 
 export type TypedStructLikeTypeExpression =
   | TypedIdentifierTypeExpression<StructType>
@@ -32,6 +33,7 @@ export type TypedStructLikeTypeExpression =
   | TypedSortTypeExpression
   | TypedWhereTypeExpression
   | TypedDistinctTypeExpression
+  | TypedUsingTypeExpression
 
 export interface TypedTypeIntroExpression<T extends Type = Type> {
   kind: "TypedTypeIntroExpression";
@@ -173,3 +175,9 @@ export interface TypedDistinctTypeExpression {
   type: StructType;
 }
 
+export interface TypedUsingTypeExpression {
+  kind: "TypedUsingTypeExpression";
+  left: TypedStructLikeTypeExpression;
+  count: number;
+  type: StructType;
+}

@@ -136,6 +136,7 @@ export type SparkDatasetHandler =
   | SparkFilterDatasetHandler
   // | SparkWindowDatasetHandler
   | SparkDistinctDatasetHandler
+  | SparkRepartitionDatasetHandler
 
 export interface DatasetId {
   name: string;
@@ -226,6 +227,13 @@ export interface SparkDistinctDatasetHandler extends BaseSparkDatasetHandler {
   columns: SparkStringExpression[];
 }
 
+export interface SparkRepartitionDatasetHandler extends BaseSparkDatasetHandler {
+  kind: "SparkRepartitionDatasetHandler";
+  input: DatasetId;
+  output: DatasetId;
+  count: number;
+}
+
 export interface SparkDependencyVertex {
   kind: "SparkDependencyVertex";
   id: number;
@@ -262,6 +270,7 @@ export function isSparkSourceDataSet(h: SparkDatasetHandler): h is SparkSourceDa
     case "SparkSortDatasetHandler":
     case "SparkFilterDatasetHandler":
     case "SparkDistinctDatasetHandler":
+    case "SparkRepartitionDatasetHandler":
       return false;
   }
 }

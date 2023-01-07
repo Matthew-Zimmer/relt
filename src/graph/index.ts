@@ -166,6 +166,7 @@ export function namedTypeDependencyGraph(typeExpressions: TypedTypeExpression[])
       case "TypedWithTypeExpression":
       case "TypedGroupByTypeExpression":
       case "TypedSortTypeExpression":
+      case "TypedUsingTypeExpression":
       case "TypedDistinctTypeExpression":
       case "TypedWhereTypeExpression": {
         walk(e.left);

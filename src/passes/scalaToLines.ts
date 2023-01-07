@@ -173,6 +173,10 @@ export function generateDatasetHandler(h: SparkDatasetHandler, packageName: stri
       return derivedHandler([h.input], [
         line(`ds0.dropDuplicates(${h.columns.map(generateSparkExpression).join(', ')}).as[${h.output.name}]`),
       ]);
+    case "SparkRepartitionDatasetHandler":
+      return derivedHandler([h.input], [
+        line(`ds0.repartition(${h.count}).as[${h.output.name}]`),
+      ]);
   }
 }
 

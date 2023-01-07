@@ -219,6 +219,7 @@ function sub(e: TypedTypeExpression, oldName: string, newName: string): TypedTyp
     case "TypedGroupByTypeExpression":
     case "TypedSortTypeExpression":
     case "TypedWhereTypeExpression":
+    case "TypedUsingTypeExpression":
     case "TypedDistinctTypeExpression":
     case "TypedDropTypeExpression": {
       const left = sub(e.left, oldName, newName) as TypedStructLikeTypeExpression;
@@ -409,7 +410,7 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
       case "WhereTypeExpression": {
         const left = typeCheck(e.left);
 
-        canOperateLikeStruct(left, 'Left side of Join expression');// Its really the right side?
+        canOperateLikeStruct(left, 'Left side of Where expression');// Its really the right side?
 
         const condition = typeCheckExpressionUnder(e.condition, left.type);
 
@@ -418,6 +419,14 @@ export function typeCheckTypeExpressions(expressions: TypeExpression[], initialE
 
         const type = structType(`Relt_Condition${left.type.name}`, left.type.properties); // TODO need way to extract what columns are filtered
         return { kind: "TypedWhereTypeExpression", left, condition, type };
+      }
+      case "UsingTypeExpression": {
+        const left = typeCheck(e.left);
+
+        canOperateLikeStruct(left, 'Left side of Using expression');// Its really the right side?
+
+        const type = structType(`Relt_Using${left.type.name}${e.count}`, left.type.properties);
+        return { kind: "TypedUsingTypeExpression", left, count: e.count, type };
       }
     }
   }

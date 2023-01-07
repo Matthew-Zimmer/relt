@@ -19,6 +19,7 @@ export type TypeExpression =
   | SortTypeExpression
   | DistinctTypeExpression
   | WhereTypeExpression
+  | UsingTypeExpression
 
 export interface TypeIntroExpression {
   kind: "TypeIntroExpression";
@@ -138,6 +139,12 @@ export interface DistinctTypeExpression {
 
 export interface WhereTypeExpression {
   kind: "WhereTypeExpression";
-  left: WhereTypeExpression;
+  left: TypeExpression;
   condition: Expression;
+}
+
+export interface UsingTypeExpression {
+  kind: "UsingTypeExpression";
+  left: TypeExpression;
+  count: number;
 }

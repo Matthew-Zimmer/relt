@@ -198,6 +198,7 @@ function desugar(expressions: TypedTypeExpression[]): TypedTypeExpression[] {
       case "TypedGroupByTypeExpression":
       case "TypedDropTypeExpression":
       case "TypedWhereTypeExpression":
+      case "TypedUsingTypeExpression":
       case "TypedDistinctTypeExpression":
       case "TypedSortTypeExpression": {
         const left = walk(e.left) as TypedStructLikeTypeExpression;
@@ -590,6 +591,17 @@ export function deriveSparkProject(
           input: datasetIdFor(e.left.type),
           output: datasetIdFor(e.type),
           columns: e.columns.map(spark.expr.string),
+        });
+        return true;
+      }
+      case "TypedUsingTypeExpression": {
+        walk(e.left);
+        addStructType(e.type);
+        datasetHandlers.push({
+          kind: "SparkRepartitionDatasetHandler",
+          input: datasetIdFor(e.left.type),
+          output: datasetIdFor(e.type),
+          count: e.count,
         });
         return true;
       }
