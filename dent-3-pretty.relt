@@ -1,0 +1,1143 @@
+type DhmoFeedHist = { 
+	don_asgnd_speclty_seq_num: float,
+	priority_supr_ntwrk_seq_num: float,
+	dental_ofc_seq_num: float,
+	prov_seq_num: float,
+	priority_supr_ntwrk_id: string?,
+	priority_supr_ntwrk_name: string?,
+	prov_profile_image_url: string?,
+	prov_experience_start_date: timestamp,
+	z_create_user_id: string?,
+	z_create_tmstmp: timestamp,
+	appointment_schedule_flag: string?,
+	appointment_schedule_url: string?,
+	patient_experience_descr: string?,
+	patient_experience_score: float,
+	professional_history_descr: string?,
+	professional_history_score: float,
+	ingest_timestamp: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type Towb01ArvatoProvNetwork = { 
+	arvato_prov_ntwk_seq_num: string?,
+	dental_ofc_seq_num: string?,
+	name_dental_ofc: string?,
+	prov_name_first: string?,
+	prov_name_last: string?,
+	prov_name_mi: string?,
+	prov_seq_num: string?,
+	prov_birth_date: string?,
+	loc_addr_1: string?,
+	loc_addr_2: string?,
+	loc_city: string?,
+	loc_state_code: string?,
+	loc_zip_code: string?,
+	loc_zip_plus_4: string?,
+	county_name: string?,
+	don_asgnd_speclty_seq_num: string?,
+	primary_speclty_flag: string?,
+	phone_num: string?,
+	dental_school_name: string?,
+	grad_yyyy: string?,
+	speclty_descr: string?,
+	derived_do_max_capacity_flag: string?,
+	derived_do_dsa_flag: string?,
+	accept_new_pats_flag: string?,
+	cntrctd_flag: string?,
+	listing_flag: string?,
+	capitate_dental_ofc_flag: string?,
+	board_cert_flag: string?,
+	don_eff_date: string?,
+	don_inactive_date: string?,
+	donas_eff_date: string?,
+	donas_inactive_date: string?,
+	weekly_dental_ofc_hours_String: string?,
+	foreign_lang_String: string?,
+	claim_sys_code: string?,
+	last_action_ind: string?,
+	zip_dhmo_exit_flag: string?,
+	z_create_tmstmp: string?,
+	z_create_user_id: string?,
+	z_update_tmstmp: string?,
+	z_update_user_id: string?,
+	prov_title_code: string?,
+	don_type_code: string?,
+	derived_do_holding_flag: string?,
+	do_gp_prov_count: string?,
+	veteran_designation_code: string?,
+	lgbt_friendly_code: string?,
+	priority_supr_ntwrk_id: string?,
+	priority_fee_tier_descr: string?,
+	donas_sub_network_seq_num: string?,
+	alternate_practitioner_flag: string?,
+	veteran_designation_descr: string?,
+	lgbt_friendly_descr: string?,
+	prov_ethnicity_descr: string?,
+	prov_ethnicity_code: string?,
+	cigna_care_designation_descr: string?,
+	cigna_care_designation_code: string?,
+	cost_effectiveness_descr: string?,
+	cost_effectiveness_code: string?,
+	npi: string?,
+	tpv_flag: string?,
+	primary_license_num: string?,
+	primary_license_state_code: string?,
+	do_email_addr: string?,
+	prov_gender_code: string?,
+	prov_name_preferred: string?,
+	don_accept_patient_type_code: string?,
+	handicap_dental_ofc_flag: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type InferredType_2 = ((
+  Towb01ArvatoProvNetwork 
+  inner join (( 
+    group Towb01ArvatoProvNetwork 
+    by arvato_prov_ntwk_seq_num agg { 
+      incr_ingest_timestamp = collect_set(incr_ingest_timestamp) 
+    }) 
+    with { 
+      incr_ingest_timestamp = sort_array(incr_ingest_timestamp, false)[0] 
+    }) 
+  on (arvato_prov_ntwk_seq_num == arvato_prov_ntwk_seq_num && incr_ingest_timestamp == incr_ingest_timestamp)
+  where (NOT (last_action_ind = D))) 
+  with { 
+    addr_ln1 = loc_addr_1,
+    addr_ln2 = loc_addr_2,
+    city_nm = loc_city,
+    ste_cd = loc_state_code,
+    zip_cd = loc_zip_code,
+    zip_plus4 = loc_zip_plus_4,
+    addr_ln2 = CASE WHEN isnull(addr_ln2) THEN  ELSE addr_ln2 END 
+  })
+
+type InferredType_3 = { 
+	orig_addr_ln1: string?,
+	orig_addr_ln2: string?,
+	orig_city_nm: string?,
+	orig_cnty_nm: string?,
+	orig_ste_cd: string?,
+	orig_zip_cd: string?,
+	orig_zip_plus4: string?,
+	val_addr_ln1: string?,
+	val_addr_ln2: string?,
+	val_city_nm: string?,
+	val_cnty_nm: string?,
+	val_ste_cd: string?,
+	val_zip_cd: string?,
+	val_zip_plus4: string?,
+	latitude: string?,
+	longitude: string?,
+	full_address_override: string?,
+	cache_timestamp: string?,
+	source: string?,
+}
+
+type InferredType_4 = (
+  (
+    (
+      (
+        InferredType_2 
+        left join 
+        (
+          (
+            (
+              (distinct InferredType_2 on city_nm, prov_seq_num, zip_plus4, addr_ln1, dental_ofc_seq_num, zip_cd, addr_ln2, ste_cd) 
+              left join (
+                (InferredType_3 over parts (orig_addr_ln1, orig_addr_ln2, orig_city_nm, orig_ste_cd, orig_zip_cd) sorting (orig_addr_ln1 ASC NULLS FIRST, orig_addr_ln2 ASC NULLS FIRST, orig_city_nm ASC NULLS FIRST, orig_ste_cd ASC NULLS FIRST, orig_zip_cd ASC NULLS FIRST) doing (row_number() windowspecdefinition(orig_addr_ln1, orig_addr_ln2, orig_city_nm, orig_ste_cd, orig_zip_cd, orig_addr_ln1 ASC NULLS FIRST, orig_addr_ln2 ASC NULLS FIRST, orig_city_nm ASC NULLS FIRST, orig_ste_cd ASC NULLS FIRST, orig_zip_cd ASC NULLS FIRST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS RowNumber)) 
+                where RowNumber = 1
+              ) 
+              on (
+                trim(addr_ln1) == trim(orig_addr_ln1) && 
+                trim(addr_ln2) == trim(orig_addr_ln2) &&
+                trim(city_nm) == trim(orig_city_nm) &&
+                trim(ste_cd) == trim(orig_ste_cd) &&
+                trim(zip_cd) == trim(orig_zip_cd)
+              )
+            ) 
+            where (
+              isnotnull(latitude) || 
+              length(trim(latitude)) > 0
+            )
+          ) 
+          with { 
+            geocoding = isnotnull(latitude) && isnotnull(longitude) ? UDF(latitude, longitude) : null,
+            val_addr_ln1 = trim(val_addr_ln1) == "" ? UDF(addr_ln1) : val_addr_ln1,
+            val_city_nm = trim(val_city_nm) == "" ? UDF(city_nm) : val_city_nm,
+            val_ste_cd = trim(val_ste_cd) == "" ? UDF(ste_cd) : val_ste_cd,
+            val_zip_cd = trim(val_zip_cd) == "" ? UDF(zip_cd) : val_zip_cd,
+          }
+        ) 
+        on (
+          prov_seq_num == prov_seq_num && 
+          dental_ofc_seq_num == dental_ofc_seq_num
+        )
+      ) 
+      where (
+        isnotnull(geocoding)
+      )
+    ) 
+    where (
+      isnotnull(PHONE_NUM) && 
+      isnotnull(PROV_NAME_FIRST) && 
+      isnotnull(PROV_NAME_LAST) && 
+      isnotnull(NAME_DENTAL_OFC) && 
+      isnotnull(val_addr_ln1) &&
+      isnotnull(val_city_nm) && 
+      isnotnull(val_ste_cd) && 
+      isnotnull(val_zip_cd)
+    )
+  ) 
+  where (
+    isnotnull(don_eff_date) && 
+    (isnull(don_inactive_date) || (don_inactive_date >= today)) &&
+    isnotnull(donas_eff_date) &&
+    (isnull(donas_inactive_date) || (donas_inactive_date >= today)) &&
+    (don_eff_date >= low_date) &&
+    (donas_eff_date >= low_date)
+  )
+)
+
+type SuperNetworkAssoc = { 
+	donas_sub_network_seq_num: float,
+	super_network_seq_num: float,
+	process_order_num: float,
+	do_tin_seq_num: float,
+	don_type_code: string?,
+	sub_network_seq_num: float,
+	dental_ofc_seq_num: float,
+	prov_seq_num: float,
+	don_asgnd_seq_num: float,
+	don_asgnd_speclty_seq_num: float,
+	donas_sn_eff_date: timestamp,
+	donas_sn_inactive_date: timestamp,
+	ingest_timestamp: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type SuperNetworkTier = { 
+	mosnt_seq_num: string?,
+	super_network_pair_seq_num: string?,
+	super_network_seq_num: string?,
+	isnt_seq_num: string?,
+	super_network_tier_type: string?,
+	super_network_pair_ext_name: string?,
+	super_network_pair_eff_dt: string?,
+	super_network_pair_inactive_dt: string?,
+	invalid_record_flag: string?,
+	z_create_tmstmp: string?,
+	z_create_user_id: string?,
+	z_update_tmstmp: string?,
+	z_update_user_id: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type SuperNetworkStg = { 
+	super_network_seq_num: string?,
+	descr: string?,
+	super_network_id: string?,
+	super_network_name: string?,
+	network_asgnd_type_code: string?,
+	network_asgnd_type_descr: string?,
+	eff_date: string?,
+	inactive_date: string?,
+	sub_network_categ_type_code: string?,
+	sub_network_categ_type_descr: string?,
+	non_std_super_network_flag: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type DentProcSpecltyXWalk = { 
+	dent_proc_spclty_xwalk_id: int,
+	dent_proc_cd: string?,
+	dent_proc_nm: string?,
+	dent_proc_ty_cd: string?,
+	dent_proc_ty_nm: string?,
+	dent_proc_sub_ty_cd: string?,
+	dent_proc_sub_ty_nm: string?,
+	hcp_ty_cd: string?,
+	hcp_ty_nm: string?,
+	dent_speclty_cd: string?,
+	dent_speclty_nm: string?,
+	dent_speclty_ty_cd: string?,
+	dent_speclty_proc_tier: int,
+	dent_prov_role_cd: string?,
+	dent_prov_role_nm: string?,
+	cret_oper_id: string?,
+	cret_ts: timestamp,
+	last_oper_id: string?,
+	last_updt_ts: timestamp,
+}
+
+type InferredType_9 = (
+  (
+    (
+      (
+        (distinct 
+          (
+            (distinct 
+              (
+                (DhmoFeedHist using 6) 
+                right join 
+                (
+                  (
+                    (
+                      (
+                        (
+                          (
+                            (
+                              (
+                                (distinct InferredType_4 on PROV_SEQ_NUM, DENTAL_OFC_SEQ_NUM, DON_TYPE_CODE, DON_ASGND_SPECLTY_SEQ_NUM)
+                                left join 
+                                (
+                                  SuperNetworkAssoc 
+                                  where (
+                                    (isnull(DONAS_SN_INACTIVE_DATE) OR (isnotnull(DONAS_SN_INACTIVE_DATE) AND (DONAS_SN_INACTIVE_DATE >= cast(2023-01-07 12:44:12.254 as timestamp))))
+                                  )
+                                ) 
+                                on (
+                                  And(And(And(EqualTo(Cast(PROV_SEQ_NUM, DoubleType, Some(America/New_York)), Cast(AttributeReference("PROV_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York))), EqualTo(Cast(DENTAL_OFC_SEQ_NUM, DoubleType, Some(America/New_York)), Cast(AttributeReference("DENTAL_OFC_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)))), EqualTo(DON_TYPE_CODE, DON_TYPE_CODE)), EqualTo(Cast(DON_ASGND_SPECLTY_SEQ_NUM, DoubleType, Some(America/New_York)), Cast(AttributeReference("DON_ASGND_SPECLTY_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York))))
+                                )
+                              ) 
+                              left join 
+                              (
+                                (
+                                  SuperNetworkTier 
+                                  inner join 
+                                  (
+                                    ( 
+                                      group SuperNetworkTier by mosnt_seq_num agg { 
+                                        incr_ingest_timestamp = collect_set(incr_ingest_timestamp, 0, 0) 
+                                      }
+                                    ) 
+                                    with { 
+                                      incr_ingest_timestamp = sort_array(incr_ingest_timestamp, false)[0] 
+                                    }
+                                  ) 
+                                  on (
+                                    And(EqualTo(mosnt_seq_num, mosnt_seq_num), EqualTo(incr_ingest_timestamp, incr_ingest_timestamp))
+                                  )
+                                ) 
+                                where (
+                                  (isnull(SUPER_NETWORK_PAIR_INACTIVE_DT) OR (isnotnull(SUPER_NETWORK_PAIR_INACTIVE_DT) AND (SUPER_NETWORK_PAIR_INACTIVE_DT >= 2023-01-07 12:44:12.254)))
+                                )
+                              ) 
+                              on (
+                                EqualTo(Cast(AttributeReference("SUPER_NETWORK_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)), Cast(SUPER_NETWORK_SEQ_NUM, DoubleType, Some(America/New_York)))
+                              )
+                            ) 
+                            left join (
+                              SuperNetworkStg 
+                              where (
+                                (isnull(INACTIVE_DATE) OR (isnotnull(INACTIVE_DATE) AND (INACTIVE_DATE >= 2023-01-07 12:44:12.254)))
+                              )
+                            ) 
+                            on (
+                              EqualTo(Cast(AttributeReference("SUPER_NETWORK_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)), Cast(SUPER_NETWORK_SEQ_NUM, DoubleType, Some(America/New_York)))
+                            )
+                          ) 
+                          where (
+                            ((((isnull(SUPER_NETWORK_PAIR_INACTIVE_DT) OR (isnotnull(SUPER_NETWORK_PAIR_INACTIVE_DT) AND (SUPER_NETWORK_PAIR_INACTIVE_DT >= 2023-01-07 12:44:12.254))) AND isnotnull(SUPER_NETWORK_PAIR_SEQ_NUM)) AND (isnotnull(DON_ASGND_SPECLTY_SEQ_NUM) AND isnotnull(SUPER_NETWORK_SEQ_NUM))) AND ((isnotnull(SUPER_NETWORK_TIER_TYPE) AND isnotnull(SUPER_NETWORK_ID)) AND isnotnull(SUPER_NETWORK_NAME)))
+                          )
+                        ) 
+                        inner join 
+                          InferredType_4 
+                        on (
+                          And(And(And(EqualTo(PROV_SEQ_NUM, prov_seq_num), EqualTo(DENTAL_OFC_SEQ_NUM, dental_ofc_seq_num)), EqualTo(DON_TYPE_CODE, don_type_code)), EqualTo(DON_ASGND_SPECLTY_SEQ_NUM, don_asgnd_speclty_seq_num))
+                        )
+                      ) 
+                      with { 
+                        prov_network_details = deriveNtwkDtls(cast(SUPER_NETWORK_SEQ_NUM as int), cast(PROV_SEQ_NUM as int), cast(DENTAL_OFC_SEQ_NUM as int), DON_TYPE_CODE, cast(DON_ASGND_SPECLTY_SEQ_NUM as int), cast(SUPER_NETWORK_PAIR_SEQ_NUM as int), SUPER_NETWORK_PAIR_EFF_DT, SUPER_NETWORK_PAIR_INACTIVE_DT, SUPER_NETWORK_TIER_TYPE, SUPER_NETWORK_ID, SUPER_NETWORK_NAME, SUPER_NETWORK_PAIR_EXT_NAME, EFF_DATE, INACTIVE_DATE) 
+                      }
+                    ) 
+                    using 6
+                  ) 
+                  with { 
+                    priority_supr_ntwrk_id = prov_network_details.prov_prty_sup_net_id 
+                  }
+                ) on (
+                  And(And(And(EqualTo(Cast(AttributeReference("DON_ASGND_SPECLTY_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)), Cast(DON_ASGND_SPECLTY_SEQ_NUM, DoubleType, Some(America/New_York))), EqualTo(Cast(AttributeReference("DENTAL_OFC_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)), Cast(DENTAL_OFC_SEQ_NUM, DoubleType, Some(America/New_York)))), EqualTo(Cast(AttributeReference("PROV_SEQ_NUM", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)), Cast(PROV_SEQ_NUM, DoubleType, Some(America/New_York)))), EqualTo(PRIORITY_SUPR_NTWRK_ID, priority_supr_ntwrk_id))
+                )
+              ) 
+              on DON_ASGND_SPECLTY_SEQ_NUM, tpv_flag, PROFESSIONAL_HISTORY_SCORE, z_create_user_id, val_city_nm, do_email_addr, z_create_tmstmp, latitude, PROFESSIONAL_HISTORY_DESCR, arvato_prov_ntwk_seq_num, donas_inactive_date, dental_school_name, city_nm, val_zip_plus4, PATIENT_EXPERIENCE_SCORE, prov_ethnicity_descr, county_name, prov_network_details, prov_ethnicity_code, claim_sys_code, prov_gender_code, derived_do_holding_flag, DENTAL_OFC_SEQ_NUM, DON_TYPE_CODE, cntrctd_flag, speclty_descr, phone_num, prov_name_preferred, SUPER_NETWORK_PAIR_EXT_NAME, zip_plus4, lgbt_friendly_descr, prov_name_last, accept_new_pats_flag, capitate_dental_ofc_flag, DONAS_SN_INACTIVE_DATE, z_update_tmstmp, weekly_dental_ofc_hours_String, val_zip_cd, val_addr_ln2, longitude, grad_yyyy, zip_dhmo_exit_flag, donas_sub_network_seq_num, cost_effectiveness_code, primary_license_num, listing_flag, priority_supr_ntwrk_id, addr_ln1, board_cert_flag, cost_effectiveness_descr, alternate_practitioner_flag, name_dental_ofc, cigna_care_designation_descr, priority_fee_tier_descr, don_eff_date, don_accept_patient_type_code, val_ste_cd, z_update_user_id, do_gp_prov_count, lgbt_friendly_code, PROV_SEQ_NUM, val_addr_ln1, prov_name_mi, APPOINTMENT_SCHEDULE_URL, donas_eff_date, derived_do_max_capacity_flag, incr_ingest_timestamp, zip_cd, primary_speclty_flag, geocoding, addr_ln2, derived_do_dsa_flag, prov_title_code, PATIENT_EXPERIENCE_DESCR, prov_name_first, handicap_dental_ofc_flag, last_action_ind, veteran_designation_descr, prov_birth_date, ste_cd, foreign_lang_String, npi, val_cnty_nm, primary_license_state_code, veteran_designation_code, don_inactive_date, cigna_care_designation_code
+            ) 
+            with { 
+              brighter_score = mergeFunctionDHMO(PROFESSIONAL_HISTORY_SCORE, DBRST003, PROFESSIONAL_HISTORY_DESCR, PATIENT_EXPERIENCE_SCORE, DBRST004, PATIENT_EXPERIENCE_DESCR), 
+              brighter_urls = UDF(APPOINTMENT_SCHEDULE_URL),
+            }
+          ) 
+          on DON_ASGND_SPECLTY_SEQ_NUM, tpv_flag, z_create_user_id, val_city_nm, do_email_addr, z_create_tmstmp, latitude, arvato_prov_ntwk_seq_num, donas_inactive_date, dental_school_name, city_nm, brighter_score, val_zip_plus4, prov_ethnicity_descr, county_name, prov_network_details, prov_ethnicity_code, claim_sys_code, prov_gender_code, derived_do_holding_flag, DENTAL_OFC_SEQ_NUM, DON_TYPE_CODE, cntrctd_flag, speclty_descr, phone_num, prov_name_preferred, SUPER_NETWORK_PAIR_EXT_NAME, zip_plus4, lgbt_friendly_descr, prov_name_last, accept_new_pats_flag, capitate_dental_ofc_flag, DONAS_SN_INACTIVE_DATE, z_update_tmstmp, weekly_dental_ofc_hours_String, val_zip_cd, val_addr_ln2, longitude, grad_yyyy, zip_dhmo_exit_flag, brighter_urls, donas_sub_network_seq_num, cost_effectiveness_code, primary_license_num, listing_flag, priority_supr_ntwrk_id, addr_ln1, board_cert_flag, cost_effectiveness_descr, alternate_practitioner_flag, name_dental_ofc, cigna_care_designation_descr, priority_fee_tier_descr, don_eff_date, don_accept_patient_type_code, val_ste_cd, z_update_user_id, do_gp_prov_count, lgbt_friendly_code, PROV_SEQ_NUM, val_addr_ln1, prov_name_mi, donas_eff_date, derived_do_max_capacity_flag, incr_ingest_timestamp, zip_cd, primary_speclty_flag, geocoding, addr_ln2, derived_do_dsa_flag, prov_title_code, prov_name_first, handicap_dental_ofc_flag, last_action_ind, veteran_designation_descr, prov_birth_date, ste_cd, foreign_lang_String, npi, val_cnty_nm, primary_license_state_code, veteran_designation_code, don_inactive_date, cigna_care_designation_code
+        ) 
+        where (
+          length(phone_num) = 10
+        )
+      ) 
+      with { 
+        phone_num = isnull(phone_num) ? null : UDF(phone_num),
+      }
+    ) 
+    left join ( 
+      distinct DentProcSpecltyXWalk on DENT_SPECLTY_CD, DENT_SPECLTY_NM
+    ) 
+    on (
+      Lower(SPECLTY_DESCR) == Lower(DENT_SPECLTY_NM)
+    )
+  ) 
+  where (
+    isnotnull(DENT_SPECLTY_NM)
+  )
+)
+
+type InferredType_10 = (
+  InferredType_9 with { 
+    specialties = UDF(DENT_SPECLTY_CD, DENT_SPECLTY_NM, FN, Functional, BOARD_CERT_FLAG, BOARD_CERT_FLAG, N), 
+    pcp_details = if (isnull(cast(prov_network_details.prov_sup_net_pair_seq_num as int))) null else UDF(SPECIALTIES.code, DON_TYPE_CODE, ACCEPT_NEW_PATS_FLAG, DERIVED_DO_MAX_CAPACITY_FLAG, knownnotnull(cast(prov_network_details.prov_sup_net_pair_seq_num as int)), DON_ACCEPT_PATIENT_TYPE_CODE) 
+  }
+)
+
+type InferredType_11 = (
+  (
+    (
+      ( 
+        distinct 
+        (
+          ( 
+            group (
+              InferredType_9 with { 
+                specialties = UDF(DENT_SPECLTY_CD, DENT_SPECLTY_NM, FN, Functional, BOARD_CERT_FLAG, BOARD_CERT_FLAG, N), 
+                pcp_details = if (isnull(cast(prov_network_details.prov_sup_net_pair_seq_num as int))) null else UDF(SPECIALTIES.code, DON_TYPE_CODE, ACCEPT_NEW_PATS_FLAG, DERIVED_DO_MAX_CAPACITY_FLAG, knownnotnull(cast(prov_network_details.prov_sup_net_pair_seq_num as int)), DON_ACCEPT_PATIENT_TYPE_CODE), 
+                pcpIndicator = pcp_details.pcpIndicator, 
+                makeMyPcpIndicator = pcp_details.makeMyPcpIndicator, 
+                overRideMyPcpIndicator = pcp_details.overRideMyPcpIndicator 
+              }
+            ) by prov_seq_num, don_type_code agg { 
+              otherLocAccNewPats = collect_set(concat_ws(-, dental_ofc_seq_num, DON_ACCEPT_PATIENT_TYPE_CODE), 0, 0), 
+              otherLocPcpInd = collect_set(concat_ws(-, dental_ofc_seq_num, pcpIndicator), 0, 0), 
+              otherLocMakeMyPcp = collect_set(concat_ws(-, dental_ofc_seq_num, makeMyPcpIndicator), 0, 0), 
+              otherLocOverRidePcp = collect_set(concat_ws(-, dental_ofc_seq_num, overRideMyPcpIndicator), 0, 0) 
+            }
+          )
+          right join InferredType_10 
+          on (
+            And(EqualTo(prov_seq_num, prov_seq_num), EqualTo(don_type_code, don_type_code))
+          )
+        ) 
+        on prov_seq_num, don_type_code, otherLocMakeMyPcp, otherLocOverRidePcp, dental_ofc_seq_num, otherLocAccNewPats, otherLocPcpInd
+      ) with { 
+        otherLocAccNewPats = if (isnull(cast(dental_ofc_seq_num as int))) null else UDF(otherLocAccNewPats, knownnotnull(cast(dental_ofc_seq_num as int))), 
+        otherLocPcpInd = if (isnull(cast(dental_ofc_seq_num as int))) null else UDF(otherLocPcpInd, knownnotnull(cast(dental_ofc_seq_num as int))), 
+        otherLocMakeMyPcp = if (isnull(cast(dental_ofc_seq_num as int))) null else UDF(otherLocMakeMyPcp, knownnotnull(cast(dental_ofc_seq_num as int))), 
+        otherLocOverRidePcp = if (isnull(cast(dental_ofc_seq_num as int))) null else UDF(otherLocOverRidePcp, knownnotnull(cast(dental_ofc_seq_num as int))) 
+      }
+    ) 
+    right join 
+    InferredType_10 
+    on (
+      And(And(EqualTo(dental_ofc_seq_num, DENTAL_OFC_SEQ_NUM), EqualTo(prov_seq_num, PROV_SEQ_NUM)), EqualTo(don_type_code, DON_TYPE_CODE))
+    )
+  ) with { 
+    provider_id = UDF(prov_seq_num), 
+    type_code = D, 
+    provider_key = UDF(type_code, provider_id), 
+    national_provider_id = npi, 
+    display_national_provider_id = npi, 
+    birth_date = CASE WHEN isnull(prov_birth_date) THEN cast(null as string) ELSE UDF(cast(prov_birth_date as timestamp)) END, 
+    age = CASE WHEN isnull(prov_birth_date) THEN cast(null as int) ELSE UDF(cast(prov_birth_date as timestamp)) END, 
+    type_code_desc = null, 
+    group_code = null, 
+    group_code_desc = null 
+  }
+)
+
+type DerivedAttributeStr = { 
+	prov_seq_num: string?,
+	foreign_lang_String: string?,
+	z_create_user_id: string?,
+	z_create_tmstmp: string?,
+	z_update_user_id: string?,
+	z_update_tmstmp: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type InferredType_13 = (
+  ( 
+    distinct InferredType_11 on PROV_SEQ_NUM
+  ) 
+  left join 
+  (
+    (
+      DerivedAttributeStr 
+      inner join 
+      (
+        ( 
+          group DerivedAttributeStr by prov_seq_num agg { 
+            incr_ingest_timestamp = collect_set(incr_ingest_timestamp, 0, 0) 
+          }
+        ) 
+        with { 
+          incr_ingest_timestamp = sort_array(incr_ingest_timestamp, false)[0] 
+        }
+      ) 
+      on (
+        And(EqualTo(prov_seq_num, prov_seq_num), EqualTo(incr_ingest_timestamp, incr_ingest_timestamp))
+      )
+    ) 
+    with { 
+      PROVIDER_LANGUAGE_STRING = FOREIGN_LANG_STRING 
+    }
+  ) 
+  on (
+    EqualTo(PROV_SEQ_NUM, PROV_SEQ_NUM)
+  )
+)
+
+type InferredType_14 = (
+  InferredType_11 
+  left join 
+  (
+    InferredType_13 
+    left join 
+    (
+      ( 
+        distinct InferredType_13 on PROVIDER_LANGUAGE_STRING
+      ) 
+      with { 
+        LANGUAGES = CASE WHEN isnull(PROVIDER_LANGUAGE_STRING) THEN cast(null as array<struct<code:string, description:string>>) ELSE UDF(lower(PROVIDER_LANGUAGE_STRING)) END, 
+        unknown_prov_langs = CASE WHEN isnull(PROVIDER_LANGUAGE_STRING) THEN cast(null as array<string>) ELSE UDF(lower(PROVIDER_LANGUAGE_STRING)) END 
+      }
+    ) 
+    on (
+      EqualTo(PROVIDER_LANGUAGE_STRING, PROVIDER_LANGUAGE_STRING)
+    )
+  ) 
+  on (
+    EqualTo(PROV_SEQ_NUM, PROV_SEQ_NUM)
+  )
+)
+
+type DoDerivedAttributeStr = { 
+	dental_ofc_seq_num: string?,
+	weekly_hours_String: string?,
+	foreign_lang_String: string?,
+	z_create_user_id: string?,
+	z_create_tmstmp: string?,
+	z_update_user_id: string?,
+	z_update_tmstmp: string?,
+	dice_weekly_hours_String: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type InferredType_16 = (
+  DoDerivedAttributeStr 
+  inner join 
+  (
+    ( 
+      group DoDerivedAttributeStr by dental_ofc_seq_num agg { 
+        incr_ingest_timestamp = collect_set(incr_ingest_timestamp, 0, 0) 
+      }
+    ) with { 
+      incr_ingest_timestamp = sort_array(incr_ingest_timestamp, false)[0] 
+    }
+  ) 
+  on (
+    And(EqualTo(dental_ofc_seq_num, dental_ofc_seq_num), EqualTo(incr_ingest_timestamp, incr_ingest_timestamp))
+  )
+)
+
+type InferredType_17 = (
+  ( 
+    distinct InferredType_14 on DENTAL_OFC_SEQ_NUM
+  ) 
+  left join 
+  (
+    InferredType_16 with { 
+      OFFICE_LANGUAGE_STRING = FOREIGN_LANG_STRING 
+    }
+  ) 
+  on (
+    EqualTo(DENTAL_OFC_SEQ_NUM, DENTAL_OFC_SEQ_NUM)
+  )
+)
+
+type ConsmrDirctyPlanRef = { 
+	consmr_dircty_plan_ref_id: int,
+	consmr_ref_cd: string?,
+	consmr_ref_nm: string?,
+	nt_cvrg_cd: string?,
+	nt_cvrg_desc: string?,
+	nt_prodt_cd: string?,
+	nt_prodt_nm: string?,
+	nt_cd: string?,
+	nt_desc: string?,
+	nt_enbl_ind: string?,
+	mpo_cd: string?,
+	mpo_name: string?,
+	ecn_cd: string?,
+	geo_st_cd: string?,
+	consmr_plan_nm: string?,
+	consmr_plan_seltn_ind: string?,
+	consmr_plan_seltn_deflt_ind: string?,
+	consmr_plan_eff_dt: timestamp,
+	consmr_plan_can_dt: timestamp,
+	plan_displ_seq_num: int,
+	cstm_geo_accss_ind: string?,
+	cret_oper_id: string?,
+	cret_ts: timestamp,
+	last_oper_id: string?,
+	last_updt_ts: timestamp,
+	npo_cd: string?,
+	npo_name: string?,
+	plan_type: string?,
+}
+
+type Gender = { 
+	gendr_id: int,
+	gendr_cd: string?,
+	gendr_nm: string?,
+	orig_src_cd: string?,
+	orig_src_nm: string?,
+	cret_oper_id: string?,
+	cret_ts: timestamp,
+	last_oper_id: string?,
+	last_oper_ts: timestamp,
+}
+
+type InferredType_20 = (
+  (
+    ( 
+      group (
+        (
+          DhmoFeedHist 
+          where (
+            isnotnull(prov_profile_image_url)
+          )
+        ) 
+        where (
+          NOT (prov_profile_image_url = "")
+        )
+      ) by prov_seq_num agg { 
+        prov_profile_image_url = collect_set(prov_profile_image_url, 0, 0)[0] 
+      }
+    ) 
+    right join 
+    (
+      (
+        (
+          (
+            (
+              (
+                (
+                  (
+                    InferredType_14 
+                    left join 
+                    (
+                      InferredType_17 
+                      left join 
+                      (
+                        (
+                          distinct InferredType_17 on OFFICE_LANGUAGE_STRING
+                        ) 
+                        with { 
+                          OFFICE_STAFF_LANGUAGES = CASE WHEN isnull(OFFICE_LANGUAGE_STRING) THEN cast(null as array<struct<code:string, description:string>>) ELSE UDF(lower(OFFICE_LANGUAGE_STRING)) END, 
+                          unknown_ofc_langs = CASE WHEN isnull(OFFICE_LANGUAGE_STRING) THEN cast(null as array<string>) ELSE UDF(lower(OFFICE_LANGUAGE_STRING)) END 
+                        }
+                      ) 
+                      on (
+                        EqualTo(OFFICE_LANGUAGE_STRING, OFFICE_LANGUAGE_STRING)
+                      )
+                    ) 
+                    on (
+                      EqualTo(DENTAL_OFC_SEQ_NUM, DENTAL_OFC_SEQ_NUM)
+                    )
+                  ) 
+                  with { 
+                    languages_string = to_json(UDF(languages), Some(America/New_York)), 
+                    office_staff_languages = to_json(UDF(office_staff_languages), Some(America/New_York)) 
+                  }
+                ) 
+                left join 
+                InferredType_16 
+                on (
+                  EqualTo(DENTAL_OFC_SEQ_NUM, DENTAL_OFC_SEQ_NUM)
+                )
+              ) 
+              with { 
+                open_hours = UDF(DICE_WEEKLY_HOURS_STRING, WEEKLY_HOURS_STRING), 
+                open_hours = replaceInvalid(open_hours.monday.open, open_hours.monday.close, open_hours.tuesday.open, open_hours.tuesday.close, open_hours.wednesday.open, open_hours.wednesday.close, open_hours.thursday.open, open_hours.thursday.close, open_hours.friday.open, open_hours.friday.close, open_hours.saturday.open, open_hours.saturday.close, open_hours.sunday.open, open_hours.sunday.close), 
+                wknd_avail_ind = UDF(open_hours.saturday.open, open_hours.saturday.close, open_hours.sunday.open, open_hours.sunday.close) 
+              }
+            ) 
+            where (
+              DON_TYPE_CODE IN (PP, PR, IN, CN, DH)
+            )
+          ) 
+          with { 
+            nt_prodt_cd = if (isnull(cast(prov_network_details.prov_sup_net_pair_seq_num as int))) null else UDF(DON_TYPE_CODE, knownnotnull(cast(prov_network_details.prov_sup_net_pair_seq_num as int))) 
+          }
+        ) 
+        left join 
+        (
+          (distinct 
+            (
+              ConsmrDirctyPlanRef 
+              where (
+                ((consmr_ref_cd = HDC001) AND (nt_cvrg_cd = D))
+              )
+            ) 
+            on nt_prodt_cd, nt_prodt_nm, consmr_ref_cd
+          ) 
+          with { 
+            nt_prodt_cd = trim(nt_prodt_cd, None), 
+            provider_participating_products = UDF(nt_prodt_cd, nt_prodt_nm, consmr_ref_cd) 
+          }
+        ) 
+        on (
+          EqualTo(nt_prodt_cd, nt_prodt_cd)
+        )
+      ) 
+      with { 
+        dockey = UDF(prov_seq_num, provider_participating_products.productCode, prov_network_details.prov_sup_net_pair_cd), 
+        formatted_addr_details = UDF(val_addr_ln1, val_addr_ln2, val_city_nm, val_ste_cd, val_zip_cd), 
+        location_id = dental_ofc_seq_num, 
+        location_effective_date = don_eff_date, 
+        location_cancel_date = don_inactive_date 
+      }
+    ) 
+    on (
+      EqualTo(Cast(AttributeReference("prov_seq_num", DecimalType(38, 18), true, {}), DoubleType, Some(America/New_York)), Cast(PROV_SEQ_NUM, DoubleType, Some(America/New_York)))
+    )
+  ) 
+  left join (
+    Gender with { 
+      prov_gender_code = gendr_cd 
+    }
+  ) on (
+    EqualTo(prov_gender_code, prov_gender_code)
+  )
+)
+
+type InferredType_21 = InferredType_20 with { 
+  gender_code = prov_gender_code,
+  gender_desc = gendr_nm 
+}
+
+type InferredType_22 = (
+  (distinct 
+    (
+      InferredType_20 with { 
+        gender_code = prov_gender_code, 
+        gender_desc = gendr_nm, 
+        prov_name_first = coalesce(prov_name_first, cast("" as string)), 
+        prov_name_last = coalesce(prov_name_last, cast("" as string)), 
+        prov_name_mi = coalesce(prov_name_mi, cast("" as string)), 
+        prov_name_preferred = coalesce(prov_name_preferred, cast("" as string)), 
+        prov_title_code = coalesce(prov_title_code, cast("" as string)) 
+      }
+    ) 
+    on prov_name_preferred, prov_name_last, prov_name_mi, prov_title_code, prov_name_first
+  ) 
+  with { 
+    join_col = UDF(prov_name_first, prov_name_last, prov_name_mi, prov_name_preferred, prov_title_code) 
+  }
+)
+
+type StandardizationReference = { 
+	partition_key: string?,
+	raw_string: string?,
+	clean_string: string?,
+	transform_type: string?,
+}
+
+type InferredType_24 = (
+  InferredType_22 
+  left join (
+    StandardizationReference 
+    where (
+      (transform_type == "NAME")
+    )
+  ) 
+  on (
+    EqualTo(AttributeReference("prov_name_first", StringType, false, {}), raw_string)
+  )
+)
+
+type InferredType_25 = (
+  (
+    (
+      (
+        InferredType_22 
+        left join (
+          InferredType_24 with { 
+            prov_name_first_clean = clean_string 
+          }
+        ) 
+        on (
+          EqualTo(join_col, join_col)
+        )
+      ) 
+      left join (
+        InferredType_24 with { 
+          prov_name_last_clean = clean_string 
+        }
+      ) 
+      on (
+        EqualTo(join_col, join_col)
+      )
+    ) 
+    left join (
+      InferredType_24 with { 
+        prov_name_preferred_clean = clean_string 
+      }
+    ) 
+    on (
+      EqualTo(join_col, join_col)
+    )
+  ) with { 
+    ref_ind = CASE WHEN ((isnull(prov_name_first_clean) OR isnull(prov_name_last_clean)) OR (isnull(prov_name_first_clean) AND isnotnull(prov_name_preferred))) THEN "N" ELSE "Y" END 
+  }
+)
+
+type InferredType_26 = (
+  (
+    (distinct InferredType_21 on dental_school_name) 
+    left join (
+      StandardizationReference 
+      where (
+        (transform_type = "SCHOOL")
+      )
+    ) 
+    on (
+      EqualTo(dental_school_name, raw_string)
+    )
+  ) with { 
+    dental_school_name_clean = clean_string, 
+    ref_ind = CASE WHEN isnull(dental_school_name_clean) THEN "N" ELSE "Y" END 
+  }
+)
+
+type InferredType_27 = (
+  (
+    (distinct InferredType_21 on name_dental_ofc) 
+    left join (
+      StandardizationReference 
+      where (
+        (transform_type = "FACILITY")
+      )
+    ) 
+    on (
+      EqualTo(name_dental_ofc, raw_string)
+    )
+  ) with { 
+    name_dental_ofc_clean = clean_string, 
+    ref_ind = CASE WHEN isnull(name_dental_ofc_clean) THEN "N" ELSE "Y" END 
+  }
+)
+
+type InferredType_28 = (
+  (distinct 
+    (
+      (
+        (
+          (
+            (
+              InferredType_20 with { 
+                gender_code = prov_gender_code, 
+                gender_desc = gendr_nm, 
+                join_col = UDF(prov_name_first, prov_name_last, prov_name_mi, prov_name_preferred, prov_title_code) 
+              }
+            ) 
+            left join (
+              (
+                (
+                  (
+                    InferredType_25 
+                    where (
+                      (ref_ind = N)
+                    )
+                  ) with { 
+                    ARGS StructType(StructField(join_col, StringType, true), StructField(prov_name_first, StringType, false), StructField(prov_name_last, StringType, false), StructField(prov_name_mi, StringType, false), StructField(prov_name_preferred, StringType, false), StructField(prov_title_code, StringType, false), StructField(prov_name_first_clean, StringType, true), StructField(prov_name_last_clean, StringType, true), StructField(prov_name_preferred_clean, StringType, true), StructField(ref_ind, StringType, false)) OUT obj 
+                  }
+                ) with { 
+                  join_col = UDF(prov_name_first, prov_name_last, prov_name_mi, prov_name_preferred, prov_title_code) 
+                }
+              ) 
+              union 
+              (
+                (
+                  (
+                    (
+                      InferredType_25 
+                      where (
+                        isnotnull(prov_name_first_clean)
+                      )
+                    ) 
+                    where (
+                      isnotnull(prov_name_last_clean)
+                    )
+                  ) with { 
+                    ARGS StructType(StructField(join_col, StringType, true), StructField(prov_name_first, StringType, false), StructField(prov_name_last, StringType, false), StructField(prov_name_mi, StringType, false), StructField(prov_name_preferred, StringType, false), StructField(prov_title_code, StringType, false), StructField(prov_name_first_clean, StringType, true), StructField(prov_name_last_clean, StringType, true), StructField(prov_name_preferred_clean, StringType, true), StructField(ref_ind, StringType, false)) OUT obj 
+                  }
+                ) 
+                with { 
+                  join_col = UDF(prov_name_first, prov_name_last, prov_name_mi, prov_name_preferred, prov_title_code) 
+                }
+              )
+            ) 
+            on (
+              EqualTo(join_col, join_col)
+            )
+          ) 
+          left join (
+            (
+              InferredType_26 
+              where (
+                (ref_ind = Y)
+              )
+            ) 
+            union 
+            (
+              (
+                InferredType_26 
+                where (
+                  (ref_ind = N)
+                )
+              ) with { 
+                ARGS StructType(StructField(dental_school_name, StringType, true), StructField(dental_school_name_clean, StringType, true), StructField(ref_ind, StringType, false)) OUT obj 
+              }
+            )
+          ) 
+          on (
+            EqualTo(dental_school_name, dental_school_name)
+          )
+        ) 
+        left join (
+          (
+            InferredType_27 where (
+              (ref_ind = Y)
+            )
+          ) 
+          union 
+          (
+            (
+              InferredType_27 
+              where (
+                (ref_ind = N)
+              )
+            ) 
+            with { 
+              ARGS StructType(StructField(name_dental_ofc, StringType, true), StructField(name_dental_ofc_clean, StringType, true), StructField(ref_ind, StringType, false)) OUT obj 
+            }
+          )
+        ) 
+        on (
+          EqualTo(name_dental_ofc, name_dental_ofc)
+        )
+      ) 
+      with { 
+        prov_name_first = prov_name_first_clean, 
+        prov_name_last = prov_name_last_clean, 
+        prov_name_mi = prov_name_mi_clean, 
+        prov_name_preferred = prov_name_preferred_clean, 
+        dental_school_name = dental_school_name_clean, 
+        name_dental_ofc = name_dental_ofc_clean 
+      }
+    ) 
+  on DON_ASGND_SPECLTY_SEQ_NUM, specialties, tpv_flag, provider_participating_products, z_create_user_id, gender_code, val_city_nm, do_email_addr, gender_desc, z_create_tmstmp, latitude, arvato_prov_ntwk_seq_num, group_code, donas_inactive_date, dental_school_name, city_nm, brighter_score, val_zip_plus4, location_cancel_date, languages_string, prov_ethnicity_descr, county_name, prov_network_details, national_provider_id, prov_ethnicity_code, claim_sys_code, derived_do_holding_flag, DENTAL_OFC_SEQ_NUM, DON_TYPE_CODE, cntrctd_flag, provider_id, speclty_descr, phone_num, prov_name_preferred, SUPER_NETWORK_PAIR_EXT_NAME, wknd_avail_ind, join_col, zip_plus4, lgbt_friendly_descr, prov_name_last, accept_new_pats_flag, capitate_dental_ofc_flag, DONAS_SN_INACTIVE_DATE, LANGUAGES, z_update_tmstmp, weekly_dental_ofc_hours_String, val_zip_cd, age, val_addr_ln2, longitude, grad_yyyy, DENT_SPECLTY_NM, zip_dhmo_exit_flag, location_id, brighter_urls, type_code, open_hours, donas_sub_network_seq_num, office_staff_languages, cost_effectiveness_code, dockey, primary_license_num, formatted_addr_details, listing_flag, priority_supr_ntwrk_id, addr_ln1, prov_full_name, board_cert_flag, cost_effectiveness_descr, alternate_practitioner_flag, name_dental_ofc, otherLocMakeMyPcp, cigna_care_designation_descr, prov_profile_image_url, pcp_details, priority_fee_tier_descr, don_eff_date, DENT_SPECLTY_CD, don_accept_patient_type_code, otherLocOverRidePcp, val_ste_cd, z_update_user_id, do_gp_prov_count, lgbt_friendly_code, PROV_SEQ_NUM, val_addr_ln1, prov_name_mi, donas_eff_date, group_code_desc, derived_do_max_capacity_flag, incr_ingest_timestamp, type_code_desc, zip_cd, primary_speclty_flag, geocoding, addr_ln2, derived_do_dsa_flag, prov_title_code, otherLocAccNewPats, otherLocPcpInd, prov_name_first, handicap_dental_ofc_flag, last_action_ind, veteran_designation_descr, prov_birth_date, ste_cd, foreign_lang_String, npi, birth_date, val_cnty_nm, primary_license_state_code, provider_key, veteran_designation_code, don_inactive_date, cigna_care_designation_code, location_effective_date, display_national_provider_id
+  ) with { 
+    priority_fee_tier_descr = CASE WHEN isnull(priority_fee_tier_descr) THEN dent_speclty_cd ELSE priority_fee_tier_descr END 
+  }
+)
+
+type ExtProvFeeSched = { 
+	ext_prov_fee_sched_seq_num: string?,
+	fee_tier_seq_num: string?,
+	fee_tier_desc: string?,
+	sched_num: string?,
+	fee_tier_ty_cd: string?,
+	fee_tier_ty_desc: string?,
+	manual_amt_entry_req_ind: string?,
+	proc_cd: string?,
+	fee_tier_update_tmstmp: string?,
+	fee_sched_amt: string?,
+	fee_sched_guar_dscnt_pct: string?,
+	fee_sched_guar_base_cd: string?,
+	fee_sched_guar_base_descr: string?,
+	fee_sched_std_pct_1: string?,
+	fee_sched_std_pct_1_base_cd: string?,
+	fee_sched_std_pct_1_base_descr: string?,
+	fee_sched_std_pct_2: string?,
+	fee_sched_std_pct_2_base_cd: string?,
+	fee_sched_std_pct_2_base_descr: string?,
+	z_create_tmstmp: string?,
+	z_create_user_id: string?,
+	z_update_tmstmp: string?,
+	z_update_user_id: string?,
+	fee_tier_inactive_date: string?,
+	fee_tier_eff_date: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type ExtGeoPercentile = { 
+	ext_geo_percentile_seq_num: string?,
+	procdr_code: string?,
+	three_digit_zip: string?,
+	geo_area: string?,
+	rc_50_percentile_amt: string?,
+	rc_60_percentile_amt: string?,
+	rc_70_percentile_amt: string?,
+	rc_75_percentile_amt: string?,
+	rc_80_percentile_amt: string?,
+	rc_85_percentile_amt: string?,
+	rc_90_percentile_amt: string?,
+	rc_95_percentile_amt: string?,
+	rc_national_avg_chg: string?,
+	rc_area_avg_chg: string?,
+	geo_zip_fee_tier_descr: string?,
+	geo_zip_eff_date: string?,
+	geo_zip_inactive_date: string?,
+	geo_percentile_eff_date: string?,
+	geo_percentile_inactive_date: string?,
+	geo_zip_fee_tier_seq_num: string?,
+	geo_percentile_seq_num: string?,
+	invalid_record_flag: string?,
+	z_create_tmstmp: string?,
+	z_create_user_id: string?,
+	z_update_tmstmp: string?,
+	z_update_user_id: string?,
+	mrc_type_code: string?,
+	incr_ingest_timestamp: string?,
+}
+
+type InferredType_31 = (
+  (
+    (
+       group (
+        (
+          (
+            distinct 
+            (
+              (
+                (
+                  (
+                    (
+                      (
+                        (
+                          (
+                            distinct InferredType_28 on prov_seq_num, val_zip_cd, don_type_code, priority_fee_tier_descr, dental_ofc_seq_num, dent_speclty_cd
+                          ) with { 
+                            three_digit_zip = UDF(val_zip_cd) 
+                          }
+                        ) 
+                        left join (
+                          ( 
+                            distinct DentProcSpecltyXWalk on dent_proc_cd, dent_speclty_nm, dent_proc_nm, dent_speclty_proc_tier, dent_speclty_cd
+                          ) with { 
+                            proc_cd = dent_proc_cd 
+                          }
+                        ) 
+                        on (
+                          EqualTo(dent_speclty_cd, dent_speclty_cd)
+                        )
+                      ) 
+                      left join (
+                        (
+                          distinct 
+                            (
+                              ExtProvFeeSched 
+                              inner join (
+                                ( 
+                                  group ExtProvFeeSched by ext_prov_fee_sched_seq_num agg { 
+                                    incr_ingest_timestamp = collect_set(incr_ingest_timestamp, 0, 0) 
+                                  }
+                                ) with { 
+                                  incr_ingest_timestamp = sort_array(incr_ingest_timestamp, false)[0] 
+                                }
+                              ) 
+                              on (
+                                And(EqualTo(ext_prov_fee_sched_seq_num, ext_prov_fee_sched_seq_num), EqualTo(incr_ingest_timestamp, incr_ingest_timestamp))
+                              )
+                            ) 
+                          on proc_cd, fee_tier_desc, fee_sched_amt, fee_sched_std_pct_2_base_cd
+                        ) with { 
+                          proc_cd = UDF(proc_cd), 
+                          priority_fee_tier_descr = fee_tier_desc 
+                        }
+                      ) 
+                      on (
+                        And(EqualTo(proc_cd, proc_cd), EqualTo(priority_fee_tier_descr, priority_fee_tier_descr))
+                      )
+                    ) 
+                    where (
+                      isnotnull(dent_speclty_proc_tier)
+                    )
+                  ) 
+                  left join (
+                    ( 
+                      distinct 
+                        (
+                          (
+                            (
+                              ExtGeoPercentile 
+                              inner join 
+                              (
+                                ( 
+                                  group ExtGeoPercentile by ext_geo_percentile_seq_num agg { 
+                                    incr_ingest_timestamp = collect_set(incr_ingest_timestamp, 0, 0) 
+                                  }
+                                ) 
+                                with { 
+                                  incr_ingest_timestamp = sort_array(incr_ingest_timestamp, false)[0] 
+                                }
+                              ) 
+                              on (
+                                And(EqualTo(ext_geo_percentile_seq_num, ext_geo_percentile_seq_num), EqualTo(incr_ingest_timestamp, incr_ingest_timestamp))
+                              )
+                            ) 
+                            where (
+                              isnull(geo_percentile_inactive_date)
+                            )
+                          ) 
+                          where (
+                            isnull(geo_zip_inactive_date)
+                          )
+                        ) 
+                      on (three_digit_zip, rc_90_percentile_amt, rc_60_percentile_amt, rc_70_percentile_amt, rc_50_percentile_amt, rc_95_percentile_amt, rc_75_percentile_amt, rc_85_percentile_amt, procdr_code, rc_80_percentile_amt)
+                    ) with { 
+                      proc_cd = procdr_code, 
+                      proc_cd = UDF(proc_cd) 
+                    }
+                  ) 
+                  on (
+                    And(EqualTo(proc_cd, proc_cd), EqualTo(three_digit_zip, three_digit_zip))
+                  )
+                ) with { 
+                  fee_sched_amt = CASE WHEN NOT (cast(fee_sched_amt as double) = -9.9999999999E8) THEN if ((isnull(cast(fee_sched_amt as double)) OR isnull(dent_speclty_proc_tier))) null else UDF(knownnotnull(cast(fee_sched_amt as double)), knownnotnull(dent_speclty_proc_tier)) WHEN ((cast(fee_sched_amt as double) = -9.9999999999E8) AND trim(fee_sched_std_pct_2_base_cd, None) IN (RC50, RC60, RC70, RC75, RC80, RC85, RC90, RC95)) THEN if (((((((((isnull(cast(rc_50_percentile_amt as double)) OR isnull(cast(rc_60_percentile_amt as double))) OR isnull(cast(rc_70_percentile_amt as double))) OR isnull(cast(rc_75_percentile_amt as double))) OR isnull(cast(rc_80_percentile_amt as double))) OR isnull(cast(rc_85_percentile_amt as double))) OR isnull(cast(rc_90_percentile_amt as double))) OR isnull(cast(rc_95_percentile_amt as double))) OR isnull(dent_speclty_proc_tier))) null else UDF(fee_sched_std_pct_2_base_cd, knownnotnull(cast(rc_50_percentile_amt as double)), knownnotnull(cast(rc_60_percentile_amt as double)), knownnotnull(cast(rc_70_percentile_amt as double)), knownnotnull(cast(rc_75_percentile_amt as double)), knownnotnull(cast(rc_80_percentile_amt as double)), knownnotnull(cast(rc_85_percentile_amt as double)), knownnotnull(cast(rc_90_percentile_amt as double)), knownnotnull(cast(rc_95_percentile_amt as double)), knownnotnull(dent_speclty_proc_tier)) ELSE if (isnull(dent_speclty_proc_tier)) null else UDF(knownnotnull(dent_speclty_proc_tier)) END 
+                }
+              ) 
+            where (
+              isnotnull(fee_sched_amt)
+            )
+          ) 
+        on (proc_cd, fee_sched_amt, prov_seq_num, val_zip_cd, don_type_code, priority_fee_tier_descr, dental_ofc_seq_num, dent_speclty_cd)
+      ) with { 
+        procedure_codes = proc_cd, 
+        procedure_costs = if (isnull(fee_sched_amt)) null else UDF(procedure_codes, knownnotnull(fee_sched_amt)) 
+      }
+    ) 
+    sort procedure_codes ASC NULLS FIRST
+  ) by dent_speclty_cd, priority_fee_tier_descr, prov_seq_num, dental_ofc_seq_num, val_zip_cd, don_type_code agg { 
+    procedure_codes = collect_list(procedure_codes, 0, 0), 
+    procedure_costs = collect_list(procedure_costs, 0, 0) 
+  }
+) 
+right join 
+InferredType_28 
+on (
+  And(And(And(And(And(EqualTo(priority_fee_tier_descr, priority_fee_tier_descr), EqualTo(prov_seq_num, PROV_SEQ_NUM)), EqualTo(dental_ofc_seq_num, DENTAL_OFC_SEQ_NUM)), EqualTo(val_zip_cd, val_zip_cd)), EqualTo(don_type_code, DON_TYPE_CODE)), EqualTo(dent_speclty_cd, DENT_SPECLTY_CD))
+)
+) with { 
+  prov_seq_num = UDF(prov_seq_num) 
+}
+)

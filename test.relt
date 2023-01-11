@@ -1,0 +1,7 @@
+sugar Name
+  on $A
+  then $A
+
+sugar disable Name
+
+sugar enable all

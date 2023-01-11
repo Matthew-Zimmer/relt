@@ -1,0 +1,71 @@
+
+# prelude.relt
+
+let Relt = {
+  type TableInfo = {
+    name: string,
+    data: { prePlan: () => unit, plan: () => unit, data: any }[],
+  }
+}
+
+let relt = {
+}
+
+sugar ImplicitLetTable 0
+  find table $A:Table~Id = $B
+  replace let [$A, $$relt.consumeTableInfo] = rl ($$ $B.front) table ($$ $B.back) { name = "$A.name", data = [] }
+
+type DBSource = {
+  host: string,
+  port: int,
+  user: string,
+  password: string,
+  table: string,
+}
+
+func db(data: DBSource)(t: [Table, Relt.TableInfo]): [Table, Relt.TableInfo] => [t[0], { ...t[0], t(1).data += {
+  func emitHandler(x: Table)(ctx: Relt.EmitContext) => do
+    if !ctx.hasTemplate "DB" then ctx.addTemplateFrom "DB" ""
+    if !ctx.hasTableType x then ctx.emitTableType x
+    
+    let t = ctx.loadTemplate "DB"
+    let name = x.name.toProper()
+
+    t.replace "NAME" name
+    t.replace "TO_DS" ctx.to_ds
+    t.replace "TO_DSS" ctx.to_dss
+    t.replace "DSS" ctx.dss
+    t.replace "DS" ctx.tableTypeName(x)
+
+    ctx.emitTemplate t
+
+    name + "DBSourceDatasetHandler"
+  end,
+  func emitPlan() => do 
+    
+  end,
+} }],
+
+# main.relt
+
+func myDb(table: string) => db { host = "localhost", port = 5432, user = "user", password = $"PASSWORD", table }
+
+table Person = myDb("person") {
+  id: pk int,
+  firstName: string,
+  lastName: string,
+}
+
+table PersonWithDerivedAttributes = memo Person with {
+  fullName = firstName + " " + lastName,
+}
+
+table Sale = myDb("sale") {
+  id: pk int,
+  firstName: string,
+  lastName: string,
+}
+
+table FullPersonSale = index PersonWithDerivedAttributes with {
+  sales: Sale[],
+}

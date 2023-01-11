@@ -13,321 +13,312 @@ export const parser = generate(`
 
   identifier 
     = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    ! { return ["type", "let", "func", "fk", "pk", "declare", "sort", "by", "distinct", "on", "where", "using"].includes(chars[0] + chars[1].join('')) }
+    ! { return ["type", "let", "func", "fk", "pk", "declare", "sort", "by", "distinct", "on", "where", "using", "sugar", "then"].includes(chars[0] + chars[1].join('')) }
     { return chars[0] + chars[1].join('') }
 
-  free_identifier
-    = chars: [^ \\t\\n\\r]+
-    { return chars.join('') }
+  free_identifier 
+    = chars: ([a-zA-Z][a-zA-Z0-9_]*)
+    { return chars[0] + chars[1].join('') }
 
   top_level_expression
     = type_intro_expression
     / expression
-    / library_declaration
+    / sugar_definition
+    / sugar_directive
 
-  library_declaration
-    = "declare" __ "library" __ name: identifier __ "package" __ package_: free_identifier __ "version" __ version: free_identifier _ "=" _ members: library_members
-    { return { kind: "LibraryDeclaration", name, package: package_, version, members } }
+  sugar_definition
+    = "sugar" __ name: identifier __ phase: (@[0-9] __)? "on" __ pattern: expression __ "then" __ replacement: expression
+    { return { kind: "SugarDefinition", name, phase: Number(phase ?? "1"), pattern, replacement, loc: location() } }
 
-  library_members
-    = "{" _ head: library_member tail: (_ "," _ @library_members)* _ ("," _)? "}"
-    { return [head, ...tail] }
+  sugar_directive
+    = "sugar" __ command: ("enable" / "disable")  __ name: identifier
+    { return { kind: "SugarDirective", command, name, loc: location() } }
 
-  library_member
-    = name: identifier _ ":" _ type: full_type
-    { return { name, type } }
+  type_intro_expression
+    = "type" __ name: identifier _ "=" _ type: type
+    { return { kind: "TypeIntroductionExpression", name, type, loc: location() } }
 
-  full_type
-    = full_function_type
+  type
+    = function_type
+  
+  function_type
+    = "(" _ from: (@type _)? ")" _ "=>" _ to: type
+    { return { kind: "FunctionType", from: from ?? undefined, to, loc: location() } }
+    / postfix_type
 
-  full_function_type
-    = "(" args: (_ @(h: full_type t: (_ "," _ @full_type)* { return [h, ...t] }) (_ ",")? )? _ ")" _ "=>" _ ret: full_type
-    { return { kind: "FunctionType", from: args, to: ret } }
-    / full_post_type
-
-  full_post_type
-    = head:full_literal_type tail:(_ op: ("?" / "[]") { return {
-        kind: op === "?" ? "OptionalType" : "ArrayType",
+  postfix_type
+    = head: literal_type tail: (_ op: ("[]" / "?") { return {
+      kind: op === "[]" ? "ArrayType" : "OptionalType",
+      loc: location()
     }})*
     { return tail.reduce((t, h) => ({ ...h, of: t }), head) }
 
-  full_literal_type
-    = "int" { return { kind: "IntegerType" } }
-    / "float" { return { kind: "FloatType" } }
-    / "bool" { return { kind: "BooleanType" } }
-    / "string" { return { kind: "StringType" } }
-    / "unit" { return { kind: "UnitType" } }
-    / name: identifier { return { kind: "StructType", name, properties: [] } }
-    / "(" _ ty: full_type _ ")" { return ty }
+  literal_type
+    = integer_type
+    / any_type
+    / never_type
+    / identifier_type
+    / float_type
+    / null_type
+    / string_type
+    / boolean_type
+    / object_type
+    / tuple_type
+
+  integer_type
+    = "int"
+    { return { kind: "IntegerType", loc: location() } }
+
+  any_type
+    = "any"
+    { return { kind: "AnyType", loc: location() } }
+
+  never_type
+    = "never"
+    { return { kind: "NeverType", loc: location() } }
+
+  float_type
+    = "float"
+    { return { kind: "FloatType", loc: location() } }
+    
+  null_type
+    = "null"
+    { return { kind: "NullType", loc: location() } }
+
+  string_type
+    = "string"
+    { return { kind: "StringType", loc: location() } }
+
+  boolean_type
+    = "bool"
+    { return { kind: "BooleanType", loc: location() } }
+
+  identifier_type
+    = name: identifier
+    { return { kind: "IdentifierType", name, loc: location() } }
+
+  tuple_type
+    = "[" _ types: (h: type t: (_ "," _ @type)* _ ("," _)? { return [h, ...t] } )? "]"
+    { return { kind: "TupleType", types: types ?? [], loc: location() } }
+
+  object_type
+    = "{" _ properties: (h: object_type_property t: (_ "," _ @object_type_property)* _ ("," _)? { return [h, ...t] } )? "}"
+    { return { kind: "ObjectType", properties: properties ?? [], loc: location() } }
+
+  object_type_property
+    = name: identifier _ ":" _ type: type
+    { return { name, type, loc: location() } }
 
   expression
     = let_expression
-    / func_expression
-    / default_expression
-
-  type_intro_expression
-    = "type" __ name: identifier _ "=" _ value: type_expression
-    { return { kind: "TypeIntroExpression", name, value } }
-
-  type_expression
-    = using_type_expression
-
-  using_type_expression
-    = left: union_type_expression _ "using" _ count: integer_expression
-    { return { kind: "UsingTypeExpression", left, count: count.value } }
-    / union_type_expression
-
-  union_type_expression
-    = head:with_type_expression tail:(_ "union" _ right: with_type_expression { return {
-        kind: 'UnionTypeExpression',
-        right,
-    }})*
-    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-
-  with_type_expression
-    = head:drop_type_expression tail:(_ "with" _ rules: rule_properties _ { return {
-      kind: 'WithTypeExpression',
-      rules,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-
-  rule_properties
-    = "{" _ head: rule_property tail: (_ "," _ @rule_property)* _ ("," _)? "}"
-    { return [head, ...tail] }
-
-  rule_property
-    = rule_value_property
-    / rule_type_property
-
-  rule_value_property
-    = name: identifier _ "=" _ value: expression
-    { return { kind: "RuleValueProperty", name, value } }
-
-  rule_type_property
-    = name: identifier _ ":" _ value: type_expression
-    { return { kind: "RuleTypeProperty", name, value } }
-
-  drop_type_expression
-    = left: sort_type_expression _ "drop" _ properties: (head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] })
-    { return { kind: "DropTypeExpression", left, properties } }
-    / sort_type_expression
-
-  sort_type_expression
-    = "sort" _ left: distinct_type_expression _ "by" _ columns: (head: sort_column tail: (_ "," _ @sort_column)* (_ ",")? { return [head, ...tail] })
-    { return { kind: "SortTypeExpression", left, columns } }
-    / distinct_type_expression
-
-  sort_column
-    = name: identifier extra: (_ order: ("asc" / "desc") nulls: (_ @("first" / "last"))? { return { order, nulls: nulls ?? 'first' } })?
-    { return { name, ...(extra !== null ? extra : { order: 'asc', nulls: 'first' }) } }
-
-  distinct_type_expression
-    = "distinct" _ left: group_by_type_expression columns: (_ "on" _ @(head: identifier tail: (_ "," _ @identifier)* (_ ",")? { return [head, ...tail] }))?
-    { return { kind: "DistinctTypeExpression", left, columns: columns ?? [] } }
-    / group_by_type_expression
-
-  group_by_type_expression
-    = "group" __ left: where_type_expression _ "by" __ column: identifier __ "agg" _ aggregations: agg_properties
-    { return { kind: "GroupByTypeExpression", left, column, aggregations } }
-    / where_type_expression
-
-  agg_properties
-    = "{" _ head: agg_property tail: (_ "," _ @agg_property)* _ ("," _)? "}"
-    { return [head, ...tail] }
-
-  agg_property
-    = name: identifier _ "=" _ value: expression
-    { return { kind: "AggProperty", name, value } }
-
-  where_type_expression
-    = head:join_type_expression tail:(_ "where" _ condition:expression { return {
-      kind: 'WhereTypeExpression',
-      condition,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-
-  join_type_expression
-    = head:type_expression_2 tail:(_ type: (@("inner" / "outer" / "left" / "right") __)? "join" _ right:type_expression_2 columns: (_ "on" _ @(leftColumn: identifier _ "==" _ rightColumn: identifier { return [leftColumn, rightColumn] } / column: identifier { return [column, column] } ))? { return {
-        kind: 'JoinTypeExpression',
-        right,
-        method: type ?? "inner",
-        leftColumn: columns?.[0],
-        rightColumn: columns?.[1],
-    }})*
-    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-
-  type_expression_2
-    = array_type_expression
-    / type_intro_expression
-
-  array_type_expression
-    = head:literal_type_expression tail:(_ "[" _ "]" { return {
-      kind: 'ArrayTypeExpression',
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, of: t }), head) }
-
-  literal_type_expression
-    = integer_type_expression
-    / float_type_expression
-    / boolean_type_expression
-    / string_type_expression
-    / identifier_type_expression
-    / object_type_expression
-    / group_type_expression
-    / foreign_key_type_expression
-    / primary_key_type_expression
-
-  integer_type_expression
-    = "int"
-    { return { kind: "IntegerTypeExpression" } }
-
-  float_type_expression
-    = "float"
-    { return { kind: "FloatTypeExpression" } }
-
-  boolean_type_expression
-    = "bool"
-    { return { kind: "BooleanTypeExpression" } }
-
-  string_type_expression
-    = "string"
-    { return { kind: "StringTypeExpression" } }
-
-  identifier_type_expression
-    = name: identifier
-    { return { kind: "IdentifierTypeExpression", name } }
-
-  foreign_key_type_expression
-    = "fk" __ table: identifier _ "." _ column: identifier
-    { return { kind: "ForeignKeyTypeExpression", table, column } }
-
-  primary_key_type_expression
-    = "pk" __ of: (integer_type_expression / string_type_expression)
-    { return { kind: "PrimaryKeyTypeExpression", of } }
-
-  type 
-    = expr: (integer_type_expression / float_type_expression / boolean_type_expression / string_type_expression)
-    { return { ...expr, kind: expr.kind.slice(0, -10) } }
-    / expr: identifier_type_expression
-    { return { kind: "StructType", name: expr.name, properties: [], } }
-
-  object_type_expression
-    = "{" _ head: object_type_property tail: (_ "," _ @object_type_property)* _ ("," _)? "}"
-    { return { kind: "ObjectTypeExpression", properties: [head, ...tail] } }
-
-  object_type_property
-    = name: identifier _ ":" _ value: type_expression
-    { return { name, value } }
-
-  group_type_expression
-    = "(" _ value: type_expression _ ")"
-    { return value }
+    / function_expression
+    / table_expression
+    / eval_expression
 
   let_expression
-    = "let" __ name: identifier _ "=" _ value: expression
-    { return { kind: "LetExpression", name, value } }
+    = "let" _ value: expression
+    { return { kind: "LetExpression", value, loc: location() } }
 
-  func_expression
-    = "func" __ name: identifier _ parameters: parameters _ value: block_expression
-    { return { kind: "FunctionExpression", name, parameters, value } }
+  table_expression
+    = "table" _ value: expression
+    { return { kind: "TableExpression", value, loc: location() } }
 
-  parameters
-    = "(" _ values: (head: parameter tail: (_ "," _ @parameter)* (_ ",")? _ { return [head, ...tail] })? ")"
-    { return values ?? [] }
+  function_expression
+    = "func" _ name: (@identifier _)? args: (@function_argument+ _)? "=>" _ value: expression
+    { return { kind: "FunctionExpression", name: name ?? undefined, args: args ?? undefined, value, loc: location() } }
 
-  parameter
-    = name: identifier _ ":" _ type: type
-    { return { kind: "Parameter", name, type } }
+  function_argument
+    = "(" _ arg: expression _ ")"
+    { return arg }
 
-  block_expression
-    = "{" values: (_ @expression)* _ "}"
-    { return { kind: "BlockExpression", values } }
+  eval_expression
+    = "$$" _ node: expression
+    { return { kind: "EvalExpression", node, loc: location() } }
+    / declare_expression
 
-  default_expression
-    = head:cmp_expression tail:(_ op: ("??") _ right:cmp_expression _ { return {
-      kind: 'DefaultExpression',
+  declare_expression
+    = value: assign_expression _ ":" _ type: type
+    { return { kind: "DeclareExpression", value, type, loc: location() } }
+    / assign_expression
+
+  assign_expression
+    = head: conditional_expression tail:(_ op: ("=") _ right: conditional_expression { return {
+      kind: 'AssignExpression',
       op,
       right,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  conditional_expression
+    = head: or_expression tail:(_ op: ("??" / "!?") _ right: or_expression { return {
+      kind: 'ConditionalExpression',
+      op,
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  or_expression
+    = head: and_expression tail:(_ op: ("||") _ right: and_expression { return {
+      kind: 'OrExpression',
+      op,
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  and_expression
+    = head: cmp_expression tail:(_ op: ("&&") _ right: cmp_expression { return {
+      kind: 'AndExpression',
+      op,
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   cmp_expression
-    = head:add_expression tail:(_ op: ("==" / "!=" / "<=" / ">=" / "<" / ">") _ right:add_expression _ { return {
+    = head: add_expression tail:(_ op: ("==" / "!=" / "<=" / ">=" / "<" / ">") _ right: add_expression { return {
       kind: 'CmpExpression',
       op,
       right,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   add_expression
-    = head:application_expression tail:(_ op: ("+") _ right:application_expression _ { return {
+    = head: mul_expression tail:(_ op: ("+" / "-") _ right: mul_expression { return {
       kind: 'AddExpression',
       op,
       right,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  mul_expression
+    = head: union_expression tail:(_ op: ("*" / "/" / "%") _ right: union_expression { return {
+      kind: 'MulExpression',
+      op,
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  union_expression
+    = head: join_expression tail:(_ "union" _ right: join_expression { return {
+      kind: 'UnionExpression',
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  join_expression
+    = head: group_by_expression tail:(_ method: (@("inner" / "left" /  "right") __)?  "join" _ right: group_by_expression on: (_ "on" @expression)? { return {
+      kind: 'JoinExpression',
+      method: method ?? "inner",
+      right,
+      on: on ?? undefined,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+  
+  group_by_expression
+    = "group" __ left: expression _ "by" _ by: expression _ "agg" _ agg: expression
+    { return { kind: "GroupExpression", left, by, agg, loc: location() } }
+    / table_op_expression
+
+  table_op_expression
+    = "distinct" __ value: expression on: (_ "on" _ @expression)?
+    { return { kind: "DistinctExpression", value, on: on ?? undefined, loc: location() } }
+    / head: dot_expression tail:(_ op: ("where" / "with" / "drop" / "select") _ right: dot_expression { return {
+      kind: { where: "WhereExpression", with: "WithExpression", drop: "DropExpression", select: "SelectExpression" }[op],
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+    
+  dot_expression
+    = head: application_expression tail:(_ op: (".") _ right: application_expression { return {
+      kind: 'DotExpression',
+      op,
+      right,
+      loc: location()
+    }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   application_expression
-    = head:dot_expression tail:(_ args: application_args _ { return {
-      kind: 'ApplicationExpression',
-      args,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, func: t }), head) }
-
-  application_args
-    = "(" _ args: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? ")"
-    { return args ?? [] }
-
-  dot_expression
-    = head:literal_expression tail:(_ "." _ right:literal_expression _ { return {
-      kind: 'DotExpression',
-      right,
-  }})*
-  { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+    = head: literal_expression tail:(__ right: literal_expression { return { kind: "ApplicationExpression", right, }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
   literal_expression
-    = float_expression
+    = identifier_expression
+    / placeholder_expression
     / integer_expression
-    / boolean_expression
+    / float_expression
     / string_expression
-    / identifier_expression
-    / object_expression
+    / env_expression
+    / boolean_expression
+    / null_expression
     / group_expression
+    / block_expression
     / array_expression
+    / object_expression
+    / spread_expression
+
+  identifier_expression
+    = name: identifier
+    { return { kind: "IdentifierExpression", name, loc: location()  } }
+
+  placeholder_expression
+    = "$" name: identifier extra: (
+        "~" name0: free_identifier ":" name1: identifier { return { kindCondition: name0, typeCondition: name1 } }
+      / ":" name0: identifier "~" name1: free_identifier { return { kindCondition: name1, typeCondition: name0 } }
+      / "~" name0: free_identifier { return { kindCondition: name0, typeCondition: undefined } }
+      / ":" name0: identifier { return { kindCondition: undefined, typeCondition: name0 } }
+    )?
+    { return { kind: "PlaceholderExpression", name, ...(extra ?? { kindCondition: undefined, typeCondition: undefined }), loc: location()  } }
+
+  integer_expression
+    = value: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") })
+    { return { kind: "IntegerExpression", value: Number(value), loc: location() } }
+
+  float_expression
+    = integer_part: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") }) "." decimal_part: [0-9]+
+    { return { kind: "FloatExpression", value: integer_part + "." + decimal_part, loc: location()  } }
+
+  string_expression
+    = "\\"" chars: [^\\"]* "\\""
+    { return { kind: "StringExpression", value: chars.join(""), loc: location()  } }
+
+  env_expression
+    = "$\\"" chars: [^\\"]* "\\""
+    { return { kind: "EnvExpression", value: chars.join(""), loc: location()  } }
+
+  boolean_expression
+    = value: ("true" / "false")
+    { return { kind: "BooleanExpression", value: value === "true", loc: location()  } }
+
+  null_expression
+    = "null"
+    { return { kind: "NullExpression", loc: location()  } }
 
   group_expression
     = "(" _ value: expression _ ")"
     { return value }
-  
-  boolean_expression
-    = value: ("true" / "false")
-    { return { kind: "BooleanExpression", value: value === "true" } }
 
-  integer_expression
-    = value: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") })
-    { return { kind: "IntegerExpression", value: Number(value) } }
-
-  float_expression
-    = integer_part: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") }) "." decimal_part: [0-9]+
-    { return { kind: "FloatExpression", value: Number(integer_part + "." + decimal_part) } }
-  
-  string_expression
-    = "\\"" chars: [^\\"]* "\\""
-    { return { kind: "StringExpression", value: chars.join("") } }
-  
-  identifier_expression
-    = name: identifier
-    { return { kind: "IdentifierExpression", name } }
+  block_expression
+    = "do" _ expressions: expression* _ "end"
+    { return { kind: "BlockExpression", expressions, loc: location()  } }
 
   object_expression
-    = "{" _ properties: (@(head: object_property tail: (_ "," _ @object_property)* { return [head, ...tail] }) ","? _)? "}"
-    { return { kind: "ObjectExpression", properties: properties ?? [] } }
-
-  object_property
-    = name: identifier _ ":" _ value: expression
-    { return { name, value } }
+    = "{" _ properties: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? "}"
+    { return { kind: "ObjectExpression", properties: properties ?? [], loc: location()  } }
 
   array_expression
     = "[" _ values: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? "]"
-    { return { kind: "ArrayExpression", values: values ?? [] } }
+    { return { kind: "ArrayExpression", values: values ?? [], loc: location()  } }
+
+  spread_expression
+    = "..." _ value: expression
+    { return { kind: "SpreadExpression", value, loc: location()  } }
 `);

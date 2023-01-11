@@ -1,0 +1,46 @@
+
+
+let indexed = digital.openSearch.index({
+  prop: ""
+})
+
+let source = relt.source.db({
+  source: ""
+})
+
+let T = source table {
+  id: int,
+  firstName: string,
+  lastName: string,
+}
+
+let DerivedT = indexed T with {
+  fullName = firstName + " " + lastName,
+}
+
+sugar ExpandGroupedChildren
+  find $A with { $B: [$C] } 
+  replace $A left join (group $C by $$relt.relation($A, $C).children agg { $B = collect this, }) with { $_0, }
+
+sugar RemoveEmptyWith
+  find $A with {} 
+  replace $A
+
+sugar RemoveEmptyGroup
+  find group $A by $B agg {} 
+  replace $A
+
+sugar CombineAdjacentWheres
+  find $A where $B where $C 
+  replace $A where $B && $C
+
+sugar ExpandImplicitNotFilter
+  find $A with { ($B != $C) } 
+  replace $A where ($B != $C) with { $_0 }
+
+sugar ExpandImplicitJoin
+  find $A join $B on $C
+  replace $A join $B on $$($C ?? relt.relation($A, $B).full)
+
+
+

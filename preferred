@@ -1,0 +1,35 @@
+type InferredType_2 = (
+  Towb01ArvatoProvNetwork 
+  inner join (( 
+    group Towb01ArvatoProvNetwork 
+    by arvato_prov_ntwk_seq_num agg { 
+      incr_ingest_timestamp = collect_set(incr_ingest_timestamp) 
+    }) 
+    with { 
+      incr_ingest_timestamp = sort_array(incr_ingest_timestamp)[0] 
+    }) 
+  on (
+    arvato_prov_ntwk_seq_num == arvato_prov_ntwk_seq_num && incr_ingest_timestamp == incr_ingest_timestamp
+  )
+  where last_action_ind != "D" 
+  with { 
+    addr_ln1 = loc_addr_1,
+    addr_ln2 = loc_addr_2,
+    city_nm = loc_city,
+    ste_cd = loc_state_code,
+    zip_cd = loc_zip_code,
+    zip_plus4 = loc_zip_plus_4,
+    addr_ln2 = addr_ln2 ?? "", 
+  }
+)
+
+type LatestProvNetwork = Towb01ArvatoProvNetwork with {
+  last_action_ind != "D",
+  incr_ingest_timestamp = max(incr_ingest_timestamp) over arvato_prov_ntwk_seq_num,
+  addr_ln1 := loc_addr_1,
+  addr_ln2 := loc_addr_2 ?? "",
+  city_nm := loc_city,
+  ste_cd := loc_state_code,
+  zip_cd := loc_zip_code,
+  zip_plus4 := loc_zip_plus_4,
+}

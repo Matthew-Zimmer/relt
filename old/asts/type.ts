@@ -6,8 +6,6 @@ export type Type =
   | FunctionType
   | UnitType
   | UnionType
-  | PrimaryKeyType
-  | ForeignKeyType
   | ArrayType
   | OptionalType
   | StructType
@@ -49,22 +47,6 @@ export interface UnionType {
   types: Type[];
 }
 
-export interface UnionType {
-  kind: "UnionType";
-  types: Type[];
-}
-
-export interface PrimaryKeyType {
-  kind: "PrimaryKeyType";
-  of: IntegerType | StringType;
-}
-
-export interface ForeignKeyType {
-  kind: "ForeignKeyType";
-  table: string;
-  column: string;
-}
-
 export interface ArrayType<T extends Type = Type> {
   kind: "ArrayType";
   of: T;
@@ -83,7 +65,5 @@ export const stringType = (): StringType => ({ kind: "StringType" });
 export const functionType = (from: Type[], to: Type): FunctionType => ({ kind: "FunctionType", from, to });
 export const unitType = (): UnitType => ({ kind: "UnitType" });
 export const unionType = (...types: Type[]): UnionType => ({ kind: "UnionType", types });
-export const pkType = (of: IntegerType | StringType): PrimaryKeyType => ({ kind: "PrimaryKeyType", of });
-export const fkType = (table: string, column: string): ForeignKeyType => ({ kind: "ForeignKeyType", table, column });
 export const arrayType = (of: Type): ArrayType => ({ kind: "ArrayType", of });
 export const optionalType = (of: Type): OptionalType => ({ kind: "OptionalType", of });
