@@ -1,7 +1,7 @@
 import { SugarDefinition, SugarDirective } from "../ast/relt/topLevel";
 import { reportUserError } from "../errors";
 import { locPath, Location } from '../ast/relt/location';
-import { gather, ofKind } from "../ast/relt/source/vistor";
+import { gather, match, ofKind } from "../ast/relt/source/vistor";
 
 export const sugarKindConditionMap = {
   "let": "LetExpression",
@@ -72,6 +72,10 @@ export function checkSugars(sugars: (SugarDefinition | SugarDirective)[]) {
       for (const ph of patternPlaceholders)
         if (ph.typeCondition !== undefined)
           reportUserError(`In sugar "${sugar.name}", placeholder "${ph.name}" contains a type condition which is not allowed sugar in phase pre type check\nAt ${locPath(ph.loc)}`);
+    }
+
+    if (match(sugar.pattern, sugar.replacement) !== undefined) {
+      reportUserError(`In sugar "${sugar.name}", pattern matches replacement which is not allowed\nAt ${locPath(sugar.loc)}`);
     }
   }
   const checkSugarDir = (sugar: SugarDirective) => {

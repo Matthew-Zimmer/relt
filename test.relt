@@ -1,7 +1,9 @@
-sugar Name
-  on $A
-  then $A
+sugar disable all
 
-sugar disable Name
+sugar F 0
+  on 1
+  then 2
 
 sugar enable all
+
+1 + x

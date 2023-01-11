@@ -5,6 +5,7 @@ import { SugarDefinition, SugarDirective } from "./ast/relt/topLevel";
 import { UserError } from "./errors";
 import { checkSugars } from "./phases/checkSugar";
 import { parse } from "./phases/parse";
+import { preTypeCheckDesugar } from "./phases/preTypeCheckDesugar";
 // import { deriveTables } from "./phases/deriveTableExpressions.";
 // import { deriveTableInfo } from "./phases/derviveTableInfo";
 
@@ -39,11 +40,12 @@ import { parse } from "./phases/parse";
 async function main() {
   const fileContent = (await readFile('test.relt')).toString();
 
-  const ast = parse(fileContent);
+  let ast = parse(fileContent);
 
   const sugars = ast.filter(x => x.kind === "SugarDefinition" || x.kind === "SugarDirective") as (SugarDefinition | SugarDirective)[];
   checkSugars(sugars);
 
+  ast = preTypeCheckDesugar(ast);
 
   console.log(inspect(ast, false, null, true));
 }

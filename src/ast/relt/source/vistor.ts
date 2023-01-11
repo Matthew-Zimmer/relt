@@ -1,4 +1,5 @@
 import { Expression } from ".";
+import { sugarKindConditionMap } from "../../../phases/checkSugar";
 import { relt } from "../../builder";
 
 export type Visitor<T extends { kind: string }, R> = { [K in T['kind']]?: (e: T & { kind: K }) => R }
@@ -43,49 +44,58 @@ export function kids(e: Expression): Expression[] {
 
 export function fromKids(e: Expression, kids: Expression[]): Expression {
   switch (e.kind) {
-    case "LetExpression": return { ...e };
-    case "TableExpression": return { ...e };
-    case "FunctionExpression": return { ...e };
-    case "EvalExpression": return { ...e };
-    case "DeclareExpression": return { ...e };
-    case "AssignExpression": return { ...e };
-    case "ConditionalExpression": return { ...e };
-    case "OrExpression": return { ...e };
-    case "AndExpression": return { ...e };
-    case "CmpExpression": return { ...e };
-    case "AddExpression": return { ...e };
-    case "MulExpression": return { ...e };
-    case "UnionExpression": return { ...e };
-    case "JoinExpression": return { ...e };
-    case "GroupByExpression": return { ...e };
-    case "WhereExpression": return { ...e };
-    case "WithExpression": return { ...e };
-    case "DropExpression": return { ...e };
-    case "SelectExpression": return { ...e };
-    case "DotExpression": return { ...e };
-    case "ApplicationExpression": return { ...e };
-    case "IdentifierExpression": return { ...e };
-    case "PlaceholderExpression": return { ...e };
-    case "IntegerExpression": return { ...e };
-    case "FloatExpression": return { ...e };
-    case "StringExpression": return { ...e };
-    case "EnvExpression": return { ...e };
-    case "BooleanExpression": return { ...e };
-    case "NullExpression": return { ...e };
-    case "BlockExpression": return { ...e };
-    case "ObjectExpression": return { ...e };
-    case "ArrayExpression": return { ...e };
-    case "SpreadExpression": return { ...e };
+    case "IdentifierExpression": return { ...e, }; // [];
+    case "PlaceholderExpression": return { ...e, }; // [];
+    case "IntegerExpression": return { ...e, }; // [];
+    case "FloatExpression": return { ...e, }; // [];
+    case "StringExpression": return { ...e, }; // [];
+    case "EnvExpression": return { ...e, }; // [];
+    case "BooleanExpression": return { ...e, }; // [];
+    case "NullExpression": return { ...e, }; // [];
+    case "LetExpression": return { ...e, value: kids[0] }; // [e.value];
+    case "TableExpression": return { ...e, value: kids[0] }; // [e.value];
+    case "FunctionExpression": return { ...e, value: kids[0] }; // [e.value];
+    case "EvalExpression": return { ...e, node: kids[0] }; // [e.node];
+    case "DeclareExpression": return { ...e, value: kids[0] }; // [e.value];
+    case "SpreadExpression": return { ...e, value: kids[0] }; // [e.value];
+    case "AssignExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "ConditionalExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "OrExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "AndExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "CmpExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "AddExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "MulExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "UnionExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "WhereExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "WithExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "DropExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "SelectExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "DotExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "ApplicationExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "JoinExpression": return { ...e, left: kids[0], right: kids[1], on: kids[2] }; // e.on === undefined ? [e.left, e.right] : [e.left, e.right, e.on];
+    case "GroupByExpression": return { ...e, value: kids[0], by: kids[1], agg: kids[2] }; // [e.value, e.by, e.agg];
+    case "BlockExpression": return { ...e, expressions: kids }; // e.expressions;
+    case "ObjectExpression": return { ...e, properties: kids }; // e.properties;
+    case "ArrayExpression": return { ...e, values: kids }; // e.values;
   }
 }
 
 export function shallowEquals(l: Expression, r: Expression): boolean {
   switch (l.kind) {
+    case "IdentifierExpression": return r.kind === "IdentifierExpression" && l.name === r.name;
+    case "PlaceholderExpression": return r.kind === "PlaceholderExpression" && l.name === r.name;
+    case "IntegerExpression": return r.kind === "IntegerExpression" && l.value === r.value;
+    case "FloatExpression": return r.kind === "FloatExpression" && l.value === r.value;
+    case "StringExpression": return r.kind === "StringExpression" && l.value === r.value;
+    case "EnvExpression": return r.kind === "EnvExpression" && l.value === r.value;
+    case "BooleanExpression": return r.kind === "BooleanExpression" && l.value === r.value;
+    case "NullExpression": return r.kind === "NullExpression";
     case "LetExpression": return r.kind === "LetExpression";
     case "TableExpression": return r.kind === "TableExpression";
     case "FunctionExpression": return r.kind === "FunctionExpression";
     case "EvalExpression": return r.kind === "EvalExpression";
     case "DeclareExpression": return r.kind === "DeclareExpression";
+    case "SpreadExpression": return r.kind === "SpreadExpression";
     case "AssignExpression": return r.kind === "AssignExpression";
     case "ConditionalExpression": return r.kind === "ConditionalExpression";
     case "OrExpression": return r.kind === "OrExpression";
@@ -94,26 +104,17 @@ export function shallowEquals(l: Expression, r: Expression): boolean {
     case "AddExpression": return r.kind === "AddExpression";
     case "MulExpression": return r.kind === "MulExpression";
     case "UnionExpression": return r.kind === "UnionExpression";
-    case "JoinExpression": return r.kind === "JoinExpression";
-    case "GroupByExpression": return r.kind === "GroupByExpression";
     case "WhereExpression": return r.kind === "WhereExpression";
     case "WithExpression": return r.kind === "WithExpression";
     case "DropExpression": return r.kind === "DropExpression";
     case "SelectExpression": return r.kind === "SelectExpression";
     case "DotExpression": return r.kind === "DotExpression";
     case "ApplicationExpression": return r.kind === "ApplicationExpression";
-    case "IdentifierExpression": return r.kind === "IdentifierExpression";
-    case "PlaceholderExpression": return r.kind === "PlaceholderExpression";
-    case "IntegerExpression": return r.kind === "IntegerExpression";
-    case "FloatExpression": return r.kind === "FloatExpression";
-    case "StringExpression": return r.kind === "StringExpression";
-    case "EnvExpression": return r.kind === "EnvExpression";
-    case "BooleanExpression": return r.kind === "BooleanExpression";
-    case "NullExpression": return r.kind === "NullExpression";
+    case "JoinExpression": return r.kind === "JoinExpression";
+    case "GroupByExpression": return r.kind === "GroupByExpression";
     case "BlockExpression": return r.kind === "BlockExpression";
     case "ObjectExpression": return r.kind === "ObjectExpression";
     case "ArrayExpression": return r.kind === "ArrayExpression";
-    case "SpreadExpression": return r.kind === "SpreadExpression";
   }
 }
 
@@ -183,11 +184,13 @@ export function normalize(e: Expression, scope: Scope): [Expression, Scope] {
   }
 }
 
-export function rewrite(e: Expression, pattern: Expression, replacement: Expression): Expression {
-  return visit(e, {}, x => {
-    const cap = match(pattern, x);
-    return cap === undefined ? x : substitute(replacement, cap);
-  }, fromKids);
+export function rewrite(e: Expression, pattern: Expression, replacement: Expression): [Expression, boolean] {
+  const res = kids(e).map(x => rewrite(x, pattern, replacement));
+  const children = res.map(x => x[0]);
+  const x = fromKids(e, children);
+  const cap = match(pattern, x);
+  const matched = cap !== undefined;
+  return [matched ? substitute(replacement, cap) : x, matched || res.some(x => x[1])];
 }
 
 type Capture = Record<string, Expression>;
@@ -197,8 +200,13 @@ export function match(pattern: Expression, e: Expression): Capture | undefined {
 
   const imp = (p: Expression, e: Expression, c: Capture | undefined): Capture | undefined => {
     if (c === undefined) return undefined;
-    if (p.kind !== e.kind || !shallowEquals(p, e))
+    if (p.kind === 'PlaceholderExpression') {
+      if (p.kindCondition !== undefined && (sugarKindConditionMap as any)[p.kindCondition] !== e.kind)
+        return undefined;
+    }
+    else if (p.kind !== e.kind || !shallowEquals(p, e)) {
       return undefined;
+    }
 
     switch (p.kind) {
       case "PlaceholderExpression": {
