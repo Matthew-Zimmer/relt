@@ -1,7 +1,7 @@
 import { SugarDefinition, SugarDirective } from "../ast/relt/topLevel";
 import { reportUserError } from "../errors";
 import { locPath, Location } from '../ast/relt/location';
-import { gather, match, ofKind } from "../ast/relt/source/vistor";
+import { gather, match, ofKind } from "../ast/relt/source/utils";
 
 export const sugarKindConditionMap = {
   "let": "LetExpression",

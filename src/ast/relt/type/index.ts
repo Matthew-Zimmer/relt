@@ -14,9 +14,14 @@ export type Type =
   | TupleType
   | NeverType
   | IdentifierType
+  | UnitType
 
 export interface IntegerType {
   kind: "IntegerType";
+}
+
+export interface UnitType {
+  kind: "UnitType";
 }
 
 export interface StringType {
@@ -51,9 +56,9 @@ export interface NullType {
   kind: "NullType";
 }
 
-export interface OptionalType {
+export interface OptionalType<T extends Type = Type> {
   kind: "OptionalType";
-  of: Type;
+  of: T;
 }
 
 export interface FunctionType {

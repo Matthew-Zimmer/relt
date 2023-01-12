@@ -1,6 +1,6 @@
 import { Expression } from ".";
 import { sugarKindConditionMap } from "../../../phases/checkSugar";
-import { relt } from "../../builder";
+import { genLoc } from "../location";
 
 export type Visitor<T extends { kind: string }, R> = { [K in T['kind']]?: (e: T & { kind: K }) => R }
 
@@ -144,46 +144,6 @@ export function gather<T extends Expression>(e: Expression, f: (e: Expression) =
   return visit(e, {}, (x) => f(x) ? [x] : [], x => x).flat() as T[];
 }
 
-type Scope = Record<string, Expression>;
-
-export function normalize(e: Expression, scope: Scope): [Expression, Scope] {
-  switch (e.kind) {
-    case "LetExpression": return [{ ...e }, scope];
-    case "TableExpression": return [{ ...e }, scope];
-    case "FunctionExpression": return [{ ...e }, scope];
-    case "EvalExpression": return [{ ...e }, scope];
-    case "DeclareExpression": return [{ ...e }, scope];
-    case "AssignExpression": return [{ ...e }, scope];
-    case "ConditionalExpression": return [{ ...e }, scope];
-    case "OrExpression": return [{ ...e }, scope];
-    case "AndExpression": return [{ ...e }, scope];
-    case "CmpExpression": return [{ ...e }, scope];
-    case "AddExpression": return [{ ...e }, scope];
-    case "MulExpression": return [{ ...e }, scope];
-    case "UnionExpression": return [{ ...e }, scope];
-    case "JoinExpression": return [{ ...e }, scope];
-    case "GroupByExpression": return [{ ...e }, scope];
-    case "WhereExpression": return [{ ...e }, scope];
-    case "WithExpression": return [{ ...e }, scope];
-    case "DropExpression": return [{ ...e }, scope];
-    case "SelectExpression": return [{ ...e }, scope];
-    case "DotExpression": return [{ ...e }, scope];
-    case "ApplicationExpression": return [{ ...e }, scope];
-    case "IdentifierExpression": return [{ ...e }, scope];
-    case "PlaceholderExpression": return [{ ...e }, scope];
-    case "IntegerExpression": return [{ ...e }, scope];
-    case "FloatExpression": return [{ ...e }, scope];
-    case "StringExpression": return [{ ...e }, scope];
-    case "EnvExpression": return [{ ...e }, scope];
-    case "BooleanExpression": return [{ ...e }, scope];
-    case "NullExpression": return [{ ...e }, scope];
-    case "BlockExpression": return [{ ...e }, scope];
-    case "ObjectExpression": return [{ ...e }, scope];
-    case "ArrayExpression": return [{ ...e }, scope];
-    case "SpreadExpression": return [{ ...e }, scope];
-  }
-}
-
 export function rewrite(e: Expression, pattern: Expression, replacement: Expression): [Expression, boolean] {
   const res = kids(e).map(x => rewrite(x, pattern, replacement));
   const children = res.map(x => x[0]);
@@ -227,7 +187,7 @@ export function match(pattern: Expression, e: Expression): Capture | undefined {
         for (const [i, prop] of e.properties.entries()) {
           const x = imp(prop, p.properties[0], c);
           if (x !== undefined)
-            return { ...x, [`_${t++}`]: relt.source.array(e.properties.filter((_, j) => j !== i)) };
+            return { ...x, [`_${t++}`]: { kind: "ArrayExpression", values: e.properties.filter((_, j) => j !== i), loc: genLoc } };
         }
         return undefined;
       }

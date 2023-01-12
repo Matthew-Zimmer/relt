@@ -10,6 +10,13 @@ export interface Location {
   end: Position;
 }
 
+export const genLoc: Location = {
+  source: "genLoc",
+  start: { offset: 0, column: 0, line: 0 },
+  end: { offset: 0, column: 0, line: 0 },
+};
+
 export function locPath(loc: Location): string {
+  if (loc.source === "genLoc") return `Generated`;
   return `${loc.source}:${loc.start.line}:${loc.start.column}`;
 }

@@ -1,8 +1,8 @@
 # Phases
 
-## Check Sugar
+## Check Sugar X
 
-## Pre Type Check Desugar
+## Pre Type Check Desugar X
 
 ## Type Check
 

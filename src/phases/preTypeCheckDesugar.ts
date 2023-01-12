@@ -1,5 +1,5 @@
 import { Expression } from "../ast/relt/source";
-import { rewrite } from "../ast/relt/source/vistor";
+import { rewrite } from "../ast/relt/source/utils";
 import { SugarDefinition, TopLevelExpression } from "../ast/relt/topLevel";
 
 
