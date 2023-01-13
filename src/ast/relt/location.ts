@@ -17,6 +17,7 @@ export const genLoc: Location = {
 };
 
 export function locPath(loc: Location): string {
+  if (loc === undefined) return `unknown path`;
   if (loc.source === "genLoc") return `Generated`;
   return `${loc.source}:${loc.start.line}:${loc.start.column}`;
 }

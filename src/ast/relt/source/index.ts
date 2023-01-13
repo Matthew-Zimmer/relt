@@ -35,6 +35,7 @@ export type Expression =
   | ObjectExpression
   | ArrayExpression
   | SpreadExpression
+  | IndexExpression
 
 export interface LetExpression {
   kind: "LetExpression";
@@ -202,6 +203,8 @@ export interface PlaceholderExpression {
   name: string;
   typeCondition?: string;
   kindCondition?: string;
+  spread?: { method: "lr" | "rl", overrides: { index: number, value: Expression }[] };
+  extract?: string;
   loc: Location;
 }
 
@@ -261,5 +264,12 @@ export interface ArrayExpression {
 export interface SpreadExpression {
   kind: "SpreadExpression";
   value: Expression;
+  loc: Location;
+}
+
+export interface IndexExpression {
+  kind: "IndexExpression";
+  left: Expression;
+  index: Expression;
   loc: Location;
 }

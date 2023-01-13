@@ -13,12 +13,17 @@ export const parser = generate(`
 
   identifier 
     = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    ! { return ["type", "let", "func", "fk", "pk", "declare", "sort", "by", "distinct", "on", "where", "using", "sugar", "then"].includes(chars[0] + chars[1].join('')) }
+    ! { return [
+      "type", "let", "func", "fk", "pk", "declare", "sort", 
+      "by", "distinct", "on", "where", "using", "sugar", "then", 
+      "union", "bool", "int", "string", "null", "float", "any", 
+      "never", "unit", "do", "false", "true", "end",
+      ].includes(chars[0] + chars[1].join('')) }
     { return chars[0] + chars[1].join('') }
 
   free_identifier 
-    = chars: ([a-zA-Z][a-zA-Z0-9_]*)
-    { return chars[0] + chars[1].join('') }
+    = chars: ([^,~!:. \\n\\t\\r()]+)
+    { return chars.join('') }
 
   top_level_expression
     = type_intro_expression
@@ -57,17 +62,27 @@ export const parser = generate(`
     = integer_type
     / any_type
     / never_type
-    / identifier_type
     / float_type
     / null_type
     / string_type
     / boolean_type
     / object_type
     / tuple_type
+    / group_type
+    / unit_type
+    / identifier_type
 
   integer_type
     = "int"
     { return { kind: "IntegerType", loc: location() } }
+
+  unit_type
+    = "unit"
+    { return { kind: "UnitType", loc: location() } }
+
+  group_type
+    = "(" _ value: type _ ")"
+    { return value }
 
   any_type
     = "any"
@@ -125,7 +140,7 @@ export const parser = generate(`
 
   function_expression
     = "func" _ name: (@identifier _)? args: (@function_argument+ _)? "=>" _ value: expression
-    { return { kind: "FunctionExpression", name: name ?? undefined, args: args ?? undefined, value, loc: location() } }
+    { return { kind: "FunctionExpression", name: name ?? undefined, args: args ?? [], value, loc: location() } }
 
   function_argument
     = "(" _ arg: expression _ ")"
@@ -230,15 +245,23 @@ export const parser = generate(`
   table_op_expression
     = "distinct" __ value: expression on: (_ "on" _ @expression)?
     { return { kind: "DistinctExpression", value, on: on ?? undefined, loc: location() } }
-    / head: dot_expression tail:(_ op: ("where" / "with" / "drop" / "select") _ right: dot_expression { return {
+    / head: application_expression tail:(_ op: ("where" / "with" / "drop" / "select") _ right: application_expression { return {
       kind: { where: "WhereExpression", with: "WithExpression", drop: "DropExpression", select: "SelectExpression" }[op],
       right,
       loc: location()
     }})*
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  application_expression
+    = head: index_expression tail:([ \\t]+ right: index_expression { return { kind: "ApplicationExpression", right, loc: location() }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  index_expression
+    = head: dot_expression tail:("[" _ index: expression _ "]" { return { kind: "IndexExpression", index, loc: location() }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
     
   dot_expression
-    = head: application_expression tail:(_ op: (".") _ right: application_expression { return {
+    = head: literal_expression tail:(_ op: (".") _ right: literal_expression { return {
       kind: 'DotExpression',
       op,
       right,
@@ -246,15 +269,10 @@ export const parser = generate(`
     }})*
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
-  application_expression
-    = head: literal_expression tail:(__ right: literal_expression { return { kind: "ApplicationExpression", right, }})*
-    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-
   literal_expression
-    = identifier_expression
-    / placeholder_expression
-    / integer_expression
+    = placeholder_expression
     / float_expression
+    / integer_expression
     / string_expression
     / env_expression
     / boolean_expression
@@ -264,6 +282,7 @@ export const parser = generate(`
     / array_expression
     / object_expression
     / spread_expression
+    / identifier_expression
 
   identifier_expression
     = name: identifier
@@ -271,12 +290,14 @@ export const parser = generate(`
 
   placeholder_expression
     = "$" name: identifier extra: (
-        "~" name0: free_identifier ":" name1: identifier { return { kindCondition: name0, typeCondition: name1 } }
-      / ":" name0: identifier "~" name1: free_identifier { return { kindCondition: name1, typeCondition: name0 } }
-      / "~" name0: free_identifier { return { kindCondition: name0, typeCondition: undefined } }
-      / ":" name0: identifier { return { kindCondition: undefined, typeCondition: name0 } }
+        "~" name0: free_identifier ":" name1: identifier { return { extract: undefined, kindCondition: name0, typeCondition: name1, spread: undefined } }
+      / ":" name0: identifier "~" name1: free_identifier { return { extract: undefined, kindCondition: name1, typeCondition: name0, spread: undefined } }
+      / "~" name0: free_identifier "..." method: ("rl" / "lr") overrides: (idx: [0-9]+ "=" value: expression { return { index: Number(idx), value } })* { return {  extract: undefined, kindCondition: name0, spread: { method, overrides }, typeCondition: undefined } }
+      / "." name0: free_identifier { return { extract: name0, kindCondition: undefined, typeCondition: undefined, spread: undefined } }
+      / "~" name0: free_identifier { return { extract: undefined, kindCondition: name0, typeCondition: undefined, spread: undefined } }
+      / ":" name0: identifier { return { extract: undefined, kindCondition: undefined, typeCondition: name0, spread: undefined } }
     )?
-    { return { kind: "PlaceholderExpression", name, ...(extra ?? { kindCondition: undefined, typeCondition: undefined }), loc: location()  } }
+    { return { kind: "PlaceholderExpression", name, ...(extra ?? { extract: undefined, kindCondition: undefined, typeCondition: undefined, spread: undefined }), loc: location()  } }
 
   integer_expression
     = value: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") })
@@ -307,7 +328,7 @@ export const parser = generate(`
     { return value }
 
   block_expression
-    = "do" _ expressions: expression* _ "end"
+    = "do" _ expressions: (@expression [\\n\\r;] _)* _ "end"
     { return { kind: "BlockExpression", expressions, loc: location()  } }
 
   object_expression

@@ -4,8 +4,8 @@ export interface SparkProject {
   name: string;
   package: string;
   imports: ScalaImport[];
-  datasets: SparkDatasetHandler[];
   types: ScalaCaseClass[];
+  sourceCode: string;
 }
 
 export interface ScalaImport {

@@ -37,7 +37,7 @@ export function preTypeCheckDesugar(e: TopLevelExpression[]): TopLevelExpression
             break;
         }
         return e;
-      case "TypeIntroExpression":
+      case "TypeIntroductionExpression":
         return e;
 
       case "LetExpression":
@@ -72,7 +72,8 @@ export function preTypeCheckDesugar(e: TopLevelExpression[]): TopLevelExpression
       case "BlockExpression":
       case "ObjectExpression":
       case "ArrayExpression":
-      case "SpreadExpression": {
+      case "SpreadExpression":
+      case "IndexExpression": {
         let flag = true;
         const rules = Object.values(enabledSugars);
         while (flag) {

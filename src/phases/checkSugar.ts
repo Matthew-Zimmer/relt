@@ -25,6 +25,7 @@ export const sugarKindConditionMap = {
   "select": "SelectExpression",
   "dot": "DotExpression",
   "app": "ApplicationExpression",
+  "@": "ApplicationExpression",
   "id": "IdentifierExpression",
   "placeholder": "PlaceholderExpression",
   "int": "IntegerExpression",

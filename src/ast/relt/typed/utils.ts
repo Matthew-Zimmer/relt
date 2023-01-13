@@ -1,5 +1,8 @@
+import { inspect } from "util";
 import { TypedCmpExpression, TypedExpression, TypedObjectExpressionProperty, TypedAddExpression, TypedMulExpression } from ".";
 import { reportInternalError, reportUserError } from "../../../errors";
+import { FunctionType } from "../type";
+import { format } from "./format";
 
 export type Visitor<T extends { kind: string }, R> = { [K in T['kind']]?: (e: T & { kind: K }) => R }
 
@@ -38,11 +41,13 @@ export function kids(e: TypedExpression): TypedExpression[] {
     case "TypedBlockExpression": return e.expressions;
     case "TypedObjectExpression": return e.properties;
     case "TypedArrayExpression": return e.values;
+    case "TypedIndexExpression": return [e.left, e.index];
+    case "TypedInternalExpression": return [];
   }
 }
 
 function assertTypedObjectExpressionKidsValid(x: TypedExpression[]): asserts x is TypedObjectExpressionProperty[] {
-  if (x.every(x => x.kind === 'TypedIdentifierExpression' || x.kind === "TypedAssignExpression" || x.kind === "TypedDeclareExpression" || x.kind === 'TypedSpreadExpression'))
+  if (!x.every(x => x.kind === 'TypedIdentifierExpression' || x.kind === "TypedAssignExpression" || x.kind === "TypedDeclareExpression" || x.kind === 'TypedSpreadExpression'))
     reportInternalError(`Internal error: when constructing TypedObjectExpression from kids: ${[x.map(x => x.kind).join(', ')]}`);
 }
 
@@ -129,6 +134,10 @@ export function fromKids(e: TypedExpression, kids: TypedExpression[]): TypedExpr
       return { ...e, properties: kids };
     case "TypedArrayExpression":
       return { ...e, values: kids };
+    case "TypedIndexExpression":
+      return { ...e, left: kids[0], index: kids[1] };
+    case "TypedInternalExpression":
+      return { ...e };
   }
 }
 
@@ -167,6 +176,8 @@ export function shallowEquals(l: TypedExpression, r: TypedExpression): boolean {
     case "TypedBlockExpression": return r.kind === "TypedBlockExpression";
     case "TypedObjectExpression": return r.kind === "TypedObjectExpression";
     case "TypedArrayExpression": return r.kind === "TypedArrayExpression";
+    case "TypedIndexExpression": return r.kind === "TypedIndexExpression";
+    case "TypedInternalExpression": return false;
   }
 }
 
@@ -399,10 +410,17 @@ function normalizeBinaryOp<T extends TypedExpression & { op: string, left: Typed
 export function normalize(e: TypedExpression, scope: Scope): [TypedExpression, Scope] {
   switch (e.kind) {
     case "TypedApplicationExpression": {
-      const [l] = normalize(e.left, scope);
+      let [l] = normalize(e.left, scope);
       const [r] = normalize(e.right, scope);
-      if (l.kind !== "TypedFunctionExpression")
+      while (l.kind === "TypedApplicationExpression") {
+        l = normalize(l, scope)[0];
+      }
+      if (l.kind === "TypedInternalExpression") {
+        return [l.value(r), scope];
+      }
+      if (l.kind !== "TypedFunctionExpression") {
         return [{ ...e, left: l, right: r }, scope];
+      }
       const arg = l.args[0];
 
       const name = (() => {
@@ -410,11 +428,13 @@ export function normalize(e: TypedExpression, scope: Scope): [TypedExpression, S
           case "TypedDeclareExpression":
             return arg.value.name;
           default:
-            reportUserError(``);
+            reportInternalError(``);
         }
       })();
 
-      return [substitute(l, { [name]: r }), scope];
+      const [value] = normalize(betaReduction(l.value, { [name]: r }), scope);
+
+      return [l.args.length === 1 ? value : { kind: "TypedFunctionExpression", args: l.args.slice(1), name: l.name, value, type: l.type.to as FunctionType }, scope];
     }
 
     case "TypedFunctionExpression": {
@@ -505,9 +525,9 @@ export function normalize(e: TypedExpression, scope: Scope): [TypedExpression, S
     case "TypedDotExpression": {
       const [l] = normalize(e.left, scope);
       if (l.kind !== "TypedObjectExpression")
-        reportInternalError(``);
+        return [{ kind: "TypedDotExpression", left: l, right: e.right, type: e.type }, scope];
       if (e.right.kind !== "TypedIdentifierExpression")
-        reportInternalError(``);
+        reportInternalError(`${e.right.kind}`);
       const name = e.right.name
       const x = l.properties.find(x => {
         switch (x.kind) {
@@ -526,9 +546,9 @@ export function normalize(e: TypedExpression, scope: Scope): [TypedExpression, S
       });
 
       if (x === undefined)
-        reportInternalError(``);
+        reportInternalError(`${name} is not defined on dot ${format(l)} but during normalization tried to access it`);
 
-      return [x, scope];
+      return [x.kind === "TypedAssignExpression" ? x.right : x, scope];
     }
     case "TypedIdentifierExpression": return e.name in scope ? [scope[e.name], scope] : [e, scope];
     case "TypedObjectExpression": {
@@ -538,6 +558,20 @@ export function normalize(e: TypedExpression, scope: Scope): [TypedExpression, S
     case "TypedArrayExpression": {
       const values = e.values.map(x => normalize(x, scope)[0]);
       return [{ kind: "TypedArrayExpression", values, type: e.type }, scope];
+    }
+    case "TypedIndexExpression": {
+      const [left] = normalize(e.left, scope);
+      const [index] = normalize(e.index, scope);
+      console.log(left);
+      if (left.kind === "TypedArrayExpression" && index.kind === "TypedIntegerExpression") {
+        if (index.value >= left.values.length)
+          reportUserError(`Out of Bounds Error duding normalization: size ${left.values.length} index: ${index.value}`);
+        return [left.values[index.value], scope];
+      }
+      return [{ kind: "TypedIndexExpression", left, index, type: e.type }, scope];
+    }
+    case "TypedInternalExpression": {
+      return [e, scope];
     }
     case "TypedSpreadExpression":
       reportInternalError(`${e.kind} is not allowed in normalization outside object or array expression`);
@@ -615,5 +649,19 @@ export function applyKids(e: TypedExpression, f: (e: TypedExpression) => TypedEx
 }
 
 export function substitute(e: TypedExpression, capture: Capture): TypedExpression {
-  return applyKids(e, x => substitute(x, capture));
+  switch (e.kind) {
+    case "TypedPlaceholderExpression":
+      return e.name in capture ? capture[e.name] : e;
+    default:
+      return applyKids(e, x => substitute(x, capture));
+  }
+}
+
+export function betaReduction(e: TypedExpression, capture: Capture): TypedExpression {
+  switch (e.kind) {
+    case "TypedIdentifierExpression":
+      return e.name in capture ? capture[e.name] : e;
+    default:
+      return applyKids(e, x => betaReduction(x, capture));
+  }
 }

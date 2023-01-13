@@ -1,0 +1,48 @@
+sugar TableIntro 0
+	on table $A~id = $B~@
+	then table $A = ($$ (relt.consumeTableMetaInfo $B~@))
+
+sugar disable all
+
+type DatasetHandler = { name: string }
+
+type Template = { replace: string => string => string }
+
+type EmitDatasetContext = { load: string => Template, toDss: string, toDs: string, name: string, typeName: string }
+
+type ReltTableHook = { emitDataset: EmitContext => DatasetHandler? }
+
+let relt = {
+    consumeTableMetaInfo: [Table, ReltTableHook] => table,
+} # { consumeTableMetaInfo: [Table, ReltTableHook] => table }
+
+sugar enable all
+
+sugar disable all
+
+type DeltaSourceInfo = { path: string }
+
+func deltaFileSource(info: DeltaSourceInfo),(x: [Table, ReltTableHook]) => [x[0], {
+    name =       x[  1].  name,
+    emitDataset = func(    ctx: EmitDatasetContext) =>   do
+    (        ctx.    load     "file://$RELT_HOME/template/helper/deltaFileSourceDatasetHandler.scala")
+    let         t =     (        ctx.    load     "file://$RELT_HOME/template/deltaFileSourceDatasetHandler.scala") # Template
+    (    (        t.    replace     "_TO_DSS_")         ctx.    toDss)
+    (    (        t.    replace     "_TO_DS_")         ctx.    toDs)
+    (    (        t.    replace     "_NAME_")         ctx.    name)
+    (    (        t.    replace     "_TYPE_")         ctx.    typeName)
+    {
+            name =                   ctx.      name +       "DeltaFileSourceDatasetHandler",
+    }
+  end # EmitDatasetContext => { name: int },
+}] # DeltaSourceInfo => [Table, ReltTableHook] => [Table, { name: never, emitDataset: EmitDatasetContext => { name: int } }]
+
+sugar enable all
+
+let myDeltaFile = (deltaFileSource {
+    path =   "s3://path/to/delta/file",
+}) # [Table, ReltTableHook] => [Table, { name: never, emitDataset: EmitDatasetContext => { name: int } }]
+
+table x = {
+    id: int,
+}

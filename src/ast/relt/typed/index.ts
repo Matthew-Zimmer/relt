@@ -1,4 +1,4 @@
-import { BooleanType, FloatType, FunctionType, IntegerType, NeverType, NullType, ObjectType, OptionalType, StringType, TableType, Type } from '../type';
+import { ArrayType, BooleanType, FloatType, FunctionType, IntegerType, NeverType, NullType, ObjectType, OptionalType, StringType, TableType, TupleType, Type } from '../type';
 
 export type TypedExpression<T extends Type = Type> =
   | TypedLetExpression
@@ -34,6 +34,8 @@ export type TypedExpression<T extends Type = Type> =
   | TypedObjectExpression
   | TypedArrayExpression
   | TypedSpreadExpression
+  | TypedIndexExpression
+  | TypedInternalExpression
 
 export type TypedLetExpressionValue =
   | TypedAssignExpression
@@ -51,7 +53,7 @@ export type TypedTableExpressionValue =
 export interface TypedTableExpression<V extends TypedTableExpressionValue = TypedTableExpressionValue, T extends Type = Type> {
   kind: "TypedTableExpression";
   value: V;
-  type: T;
+  type: TableType;
 }
 
 export interface TypedFunctionExpression {
@@ -278,7 +280,7 @@ export interface TypedObjectExpression<P extends TypedObjectExpressionProperty =
 export interface TypedArrayExpression<T extends TypedExpression = TypedExpression> {
   kind: "TypedArrayExpression";
   values: T[];
-  type: Type;
+  type: ArrayType | TupleType;
 }
 
 export interface TypedSpreadExpression {
@@ -287,117 +289,16 @@ export interface TypedSpreadExpression {
   type: ObjectType;
 }
 
-// export interface TypedTypedLetExpression {
-//   kind: "TypedTypedLetExpression";
-//   name: string;
-//   value: TypedTypedExpression;
-//   type: Type;
-// }
+export interface TypedIndexExpression {
+  kind: "TypedIndexExpression";
+  left: TypedExpression<ArrayType | TupleType>;
+  index: TypedExpression<IntegerType>;
+  type: Type;
+}
 
-// export interface TypedTypedIntegerExpression {
-//   kind: "TypedTypedIntegerExpression";
-//   value: number;
-//   type: Type;
-// }
+export interface TypedInternalExpression {
+  kind: "TypedInternalExpression";
+  value: (e: TypedExpression) => TypedExpression,
+  type: NeverType;
+}
 
-// export interface TypedTypedIdentifierExpression {
-//   kind: "TypedTypedIdentifierExpression";
-//   name: string;
-//   type: Type;
-// }
-
-// export interface TypedTypedApplicationExpression {
-//   kind: "TypedTypedApplicationExpression";
-//   left: TypedTypedExpression;
-//   right: TypedTypedExpression;
-//   type: Type;
-// }
-
-// export interface TypedTypedStringExpression {
-//   kind: "TypedTypedStringExpression";
-//   value: string;
-//   type: Type;
-// }
-
-// export interface TypedTypedBooleanExpression {
-//   kind: "TypedTypedBooleanExpression";
-//   value: boolean;
-//   type: Type;
-// }
-
-// export interface TypedTypedFloatExpression {
-//   kind: "TypedTypedFloatExpression";
-//   value: string;
-//   type: Type;
-// }
-
-// export type TypedValidObjectPropertyExpression =
-//   | TypedTypedAssignExpression<TypedTypedIdentifierExpression>
-
-// export interface TypedTypedObjectExpression {
-//   kind: "TypedTypedObjectExpression";
-//   properties: TypedValidObjectPropertyExpression[];
-//   type: Type;
-// }
-
-// export interface TypedTypedArrayExpression {
-//   kind: "TypedTypedArrayExpression";
-//   values: TypedTypedExpression[];
-//   type: Type;
-// }
-
-// export interface TypedTypedPlaceholderExpression {
-//   kind: "TypedTypedPlaceholderExpression";
-//   name: string;
-//   type: Type;
-// }
-
-// export interface TypedTypedEvalExpression {
-//   kind: "TypedTypedEvalExpression";
-//   node: TypedTypedExpression;
-//   type: Type;
-// }
-
-// export type TypedValidTableColumnExpression =
-//   | TypedTypedDeclareExpression<TypedTypedIdentifierExpression>
-
-// export interface TypedTypedTableExpression {
-//   kind: "TypedTypedTableExpression";
-//   name: string;
-//   columns: TypedValidTableColumnExpression[];
-//   type: TableType;
-// }
-
-// export interface TypedTypedDeclareExpression<L extends TypedTypedExpression = TypedTypedExpression, T extends Type = Type> {
-//   kind: "TypedTypedDeclareExpression";
-//   left: L;
-//   type: T;
-// }
-
-// export interface TypedTypedAssignExpression<L extends TypedTypedExpression = TypedTypedExpression, R extends TypedTypedExpression = TypedTypedExpression, T extends Type = Type> {
-//   kind: "TypedTypedAssignExpression";
-//   left: L;
-//   right: R;
-//   type: T;
-// }
-
-// export interface TypedTypedNullExpression {
-//   kind: "TypedTypedNullExpression";
-//   type: Type;
-// }
-
-// export function ofKind<K extends TypedTypedExpression['kind']>(kind: K) {
-//   return <T extends TypedTypedExpression>(x: T): x is T & { kind: K } => x.kind === kind;
-// }
-
-// export function ofType<K extends Type['kind']>(kind: K) {
-//   return <T extends TypedTypedExpression>(x: T): x is T & { type: Type & { kind: K } } => x.type.kind === kind;
-// }
-
-// export function ofLeft<K extends TypedTypedExpression['kind']>(kind: K) {
-//   return <T extends { left: TypedTypedExpression }>(x: T): x is T & { left: TypedTypedExpression & { kind: K } } => x.left.kind === kind;
-// }
-
-// export function ofRight<K extends TypedTypedExpression['kind']>(kind: K) {
-//   return <T extends { right: TypedTypedExpression }>(x: T): x is T & { right: TypedTypedExpression & { kind: K } } => x.right.kind === kind;
-// }

@@ -1,6 +1,8 @@
+import { inspect } from "util";
 import { Expression } from ".";
+import { reportInternalError, reportUserError } from "../../../errors";
 import { sugarKindConditionMap } from "../../../phases/checkSugar";
-import { genLoc } from "../location";
+import { genLoc, Location } from "../location";
 
 export type Visitor<T extends { kind: string }, R> = { [K in T['kind']]?: (e: T & { kind: K }) => R }
 
@@ -39,6 +41,7 @@ export function kids(e: Expression): Expression[] {
     case "BlockExpression": return e.expressions;
     case "ObjectExpression": return e.properties;
     case "ArrayExpression": return e.values;
+    case "IndexExpression": return [e.left, e.index];
   }
 }
 
@@ -77,6 +80,7 @@ export function fromKids(e: Expression, kids: Expression[]): Expression {
     case "BlockExpression": return { ...e, expressions: kids }; // e.expressions;
     case "ObjectExpression": return { ...e, properties: kids }; // e.properties;
     case "ArrayExpression": return { ...e, values: kids }; // e.values;
+    case "IndexExpression": return { ...e, left: kids[0], index: kids[1] };
   }
 }
 
@@ -115,6 +119,7 @@ export function shallowEquals(l: Expression, r: Expression): boolean {
     case "BlockExpression": return r.kind === "BlockExpression";
     case "ObjectExpression": return r.kind === "ObjectExpression";
     case "ArrayExpression": return r.kind === "ArrayExpression";
+    case "IndexExpression": return r.kind === "IndexExpression";
   }
 }
 
@@ -161,6 +166,8 @@ export function match(pattern: Expression, e: Expression): Capture | undefined {
   const imp = (p: Expression, e: Expression, c: Capture | undefined): Capture | undefined => {
     if (c === undefined) return undefined;
     if (p.kind === 'PlaceholderExpression') {
+      if (e.kind === 'PlaceholderExpression' && p.name === e.name)
+        return c;
       if (p.kindCondition !== undefined && (sugarKindConditionMap as any)[p.kindCondition] !== e.kind)
         return undefined;
     }
@@ -210,6 +217,92 @@ export function applyKids(e: Expression, f: (e: Expression) => Expression): Expr
   return fromKids(e, kids(e).map(f));
 }
 
-export function substitute(e: Expression, capture: Capture): Expression {
-  return applyKids(e, x => substitute(x, capture));
+export function extract(e: Expression, name: string): Expression {
+  if (!(name in e)) return e;
+
+  const value = (e as any)[name];
+  switch (typeof value) {
+    case "bigint":
+    case "function":
+    case "symbol":
+      reportInternalError(`Bad extract ${typeof value}`);
+    case "boolean":
+      return { kind: "BooleanExpression", value, loc: genLoc };
+    case "number":
+      return { kind: "IntegerExpression", value, loc: genLoc };
+    case "object":
+      return value as Expression;
+    case "string":
+      if (`${Number(value)}` === value)
+        return { kind: "FloatExpression", value, loc: genLoc };
+      return { kind: "StringExpression", value, loc: genLoc };
+    case "undefined":
+      return e;
+  }
 }
+
+export function substitute(e: Expression, capture: Capture): Expression {
+  switch (e.kind) {
+    case "PlaceholderExpression": {
+      if (e.spread === undefined) {
+        if (e.extract === undefined)
+          return capture[e.name];
+        else {
+          return extract(capture[e.name], e.extract);
+        }
+      }
+      const { kindCondition: cond, spread: { method, overrides } } = e;
+      const kind = sugarKindConditionMap[cond! as keyof typeof sugarKindConditionMap] as Expression['kind'];
+      const exprs: Expression[] = [];
+      const locs: Location[] = [];
+      const cap = capture[e.name];
+      const walk = (e: Expression & { left: Expression, right: Expression }) => {
+        if (e.kind === kind) {
+          locs.push(e.loc);
+          exprs.push(e.left);
+          if (e.right.kind === kind) {
+            walk(e.right as any);
+          }
+          else {
+            exprs.push(e.right);
+          }
+        }
+      };
+      walk(cap as any);
+      if (exprs.length < 2)
+        reportUserError(`Cannot substitute and spread over binary expression since at least two elements where not discovered`);
+
+      const override = (e: Expression, i: number) => {
+        const value = overrides.find(x => x.index === i);
+        return value === undefined ? e : substitute(betaReduce(value.value, { 'x': e }), capture);
+      }
+      let expr: any;
+      switch (method) {
+        case "lr": {
+          expr = { kind, loc: locs[0], left: override(exprs[0], 0), right: override(exprs[1], 1) };
+          for (let i = 2; i < exprs.length; i++)
+            expr = { kind, loc: locs[i - 1], left: expr, right: override(exprs[i], i) };
+          return expr;
+        }
+        case "rl": {
+          expr = { kind, loc: locs[locs.length - 1], left: override(exprs[exprs.length - 2], 1), right: override(exprs[exprs.length - 1], 0) };
+          for (let i = 2; i < exprs.length; i++)
+            expr = { kind, loc: locs[locs.length - i - 1], left: override(exprs[exprs.length - i - 1], exprs.length - i - 1), right: expr };
+          return expr;
+        }
+      }
+    }
+    default:
+      return applyKids(e, x => substitute(x, capture));
+  }
+}
+
+export function betaReduce(e: Expression, capture: Capture): Expression {
+  switch (e.kind) {
+    case "IdentifierExpression":
+      return e.name in capture ? capture[e.name] : e;
+    default:
+      return applyKids(e, x => betaReduce(x, capture));
+  }
+}
+
