@@ -54,7 +54,7 @@ export function format(e: Expression): string {
       case "DotExpression":
         return pad(`${imp(e.left)}.${imp(e.right)}`);
       case "ApplicationExpression":
-        return pad(`(${imp(e.left)} ${imp(e.right)})`);
+        return pad(`${imp(e.left)}(${e.args.map(imp).join(', ')})`);
       case "IdentifierExpression":
         return pad(`${e.name}`);
       case "PlaceholderExpression":

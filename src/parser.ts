@@ -48,7 +48,7 @@ export const parser = generate(`
   
   function_type
     = "(" _ from: (@type _)? ")" _ "=>" _ to: type
-    { return { kind: "FunctionType", from: from ?? undefined, to, loc: location() } }
+    { return { kind: "FunctionType", from: from ?? { kind: "UnitType" }, to, loc: location() } }
     / postfix_type
 
   postfix_type
@@ -135,8 +135,8 @@ export const parser = generate(`
     { return { kind: "LetExpression", value, loc: location() } }
 
   table_expression
-    = "table" _ value: expression
-    { return { kind: "TableExpression", value, loc: location() } }
+    = hooks: ("@" _ @expression [\\n\\r])* "table" _ value: expression
+    { return { kind: "TableExpression", value, hooks, loc: location() } }
 
   function_expression
     = "func" _ name: (@identifier _)? args: (@function_argument+ _)? "=>" _ value: expression
@@ -252,16 +252,8 @@ export const parser = generate(`
     }})*
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
-  application_expression
-    = head: index_expression tail:([ \\t]+ right: index_expression { return { kind: "ApplicationExpression", right, loc: location() }})*
-    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-
-  index_expression
-    = head: dot_expression tail:("[" _ index: expression _ "]" { return { kind: "IndexExpression", index, loc: location() }})*
-    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
-    
   dot_expression
-    = head: literal_expression tail:(_ op: (".") _ right: literal_expression { return {
+    = head: application_expression tail:(_ op: (".") _ right: application_expression { return {
       kind: 'DotExpression',
       op,
       right,
@@ -269,6 +261,18 @@ export const parser = generate(`
     }})*
     { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
 
+
+  application_expression
+    = head: index_expression tail: (
+      "(" _ values: (h: expression t: (_ "," _ @expression)* _ ("," _)? { return [h, ...t] } )? ")"  { return { kind: "ApplicationExpression", args: values ?? [], loc: location() } }
+      / _ "." _ right: index_expression { return { kind: "DotExpression", right, loc: location() } }
+    )*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+
+  index_expression
+    = head: literal_expression tail:("[" _ index: expression _ "]" { return { kind: "IndexExpression", index, loc: location() }})*
+    { return tail.reduce((t, h) => ({ ...h, left: t }), head) }
+    
   literal_expression
     = placeholder_expression
     / float_expression
@@ -305,7 +309,7 @@ export const parser = generate(`
 
   float_expression
     = integer_part: ("0" / head: [1-9] tail: [0-9]* { return head + tail.join("") }) "." decimal_part: [0-9]+
-    { return { kind: "FloatExpression", value: integer_part + "." + decimal_part, loc: location()  } }
+    { return { kind: "FloatExpression", value: integer_part + "." + decimal_part.join(""), loc: location()  } }
 
   string_expression
     = "\\"" chars: [^\\"]* "\\""

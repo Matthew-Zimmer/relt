@@ -61,10 +61,10 @@ export interface OptionalType<T extends Type = Type> {
   of: T;
 }
 
-export interface FunctionType {
+export interface FunctionType<F extends Type = Type, T extends Type = Type> {
   kind: "FunctionType";
-  from: Type;
-  to: Type;
+  from: F;
+  to: T;
 }
 
 export interface AnyType {
@@ -80,7 +80,7 @@ export interface NeverType {
   kind: "NeverType";
 }
 
-export interface IdentifierType {
+export interface IdentifierType<N extends string = string> {
   kind: "IdentifierType";
-  name: string;
+  name: N;
 }

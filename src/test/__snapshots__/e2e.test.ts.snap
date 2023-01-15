@@ -1,0 +1,1022 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`should parse and type check booleans 1`] = `
+[
+  {
+    "kind": "TypedBooleanExpression",
+    "type": {
+      "kind": "BooleanType",
+    },
+    "value": true,
+  },
+]
+`;
+
+exports[`should parse and type check booleans 2`] = `
+[
+  {
+    "kind": "TypedBooleanExpression",
+    "type": {
+      "kind": "BooleanType",
+    },
+    "value": false,
+  },
+]
+`;
+
+exports[`should parse and type check do end (empty) 1`] = `
+[
+  {
+    "expressions": [],
+    "kind": "TypedBlockExpression",
+    "type": {
+      "kind": "UnitType",
+    },
+  },
+]
+`;
+
+exports[`should parse and type check do end (multi) 1`] = `
+[
+  {
+    "expressions": [
+      {
+        "kind": "TypedIntegerExpression",
+        "type": {
+          "kind": "IntegerType",
+        },
+        "value": 1,
+      },
+      {
+        "kind": "TypedStringExpression",
+        "type": {
+          "kind": "StringType",
+        },
+        "value": "aslkdjhsla",
+      },
+    ],
+    "kind": "TypedBlockExpression",
+    "type": {
+      "kind": "StringType",
+    },
+  },
+]
+`;
+
+exports[`should parse and type check do end (singular) 1`] = `
+[
+  {
+    "expressions": [
+      {
+        "kind": "TypedIntegerExpression",
+        "type": {
+          "kind": "IntegerType",
+        },
+        "value": 1,
+      },
+    ],
+    "kind": "TypedBlockExpression",
+    "type": {
+      "kind": "IntegerType",
+    },
+  },
+]
+`;
+
+exports[`should parse and type check empty strings 1`] = `
+[
+  {
+    "kind": "TypedStringExpression",
+    "type": {
+      "kind": "StringType",
+    },
+    "value": "",
+  },
+]
+`;
+
+exports[`should parse and type check env string 1`] = `
+[
+  {
+    "kind": "TypedEnvExpression",
+    "type": {
+      "kind": "StringType",
+    },
+    "value": "ENV_VAR",
+  },
+]
+`;
+
+exports[`should parse and type check floats 1`] = `
+[
+  {
+    "kind": "TypedFloatExpression",
+    "type": {
+      "kind": "FloatType",
+    },
+    "value": "1.02",
+  },
+]
+`;
+
+exports[`should parse and type check function (0 args) 1`] = `
+[
+  {
+    "args": [],
+    "kind": "TypedFunctionExpression",
+    "name": "f",
+    "type": {
+      "from": {
+        "kind": "UnitType",
+      },
+      "kind": "FunctionType",
+      "to": {
+        "kind": "IntegerType",
+      },
+    },
+    "value": {
+      "kind": "TypedIntegerExpression",
+      "type": {
+        "kind": "IntegerType",
+      },
+      "value": 1,
+    },
+  },
+]
+`;
+
+exports[`should parse and type check function (1 args) 1`] = `
+[
+  {
+    "args": [
+      {
+        "kind": "TypedDeclareExpression",
+        "type": {
+          "kind": "StringType",
+          "loc": {
+            "end": {
+              "column": 17,
+              "line": 1,
+              "offset": 16,
+            },
+            "source": "test.relt",
+            "start": {
+              "column": 11,
+              "line": 1,
+              "offset": 10,
+            },
+          },
+        },
+        "value": {
+          "kind": "TypedIdentifierExpression",
+          "name": "x",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "end": {
+                "column": 17,
+                "line": 1,
+                "offset": 16,
+              },
+              "source": "test.relt",
+              "start": {
+                "column": 11,
+                "line": 1,
+                "offset": 10,
+              },
+            },
+          },
+        },
+      },
+    ],
+    "kind": "TypedFunctionExpression",
+    "name": "f",
+    "type": {
+      "from": {
+        "kind": "StringType",
+        "loc": {
+          "end": {
+            "column": 17,
+            "line": 1,
+            "offset": 16,
+          },
+          "source": "test.relt",
+          "start": {
+            "column": 11,
+            "line": 1,
+            "offset": 10,
+          },
+        },
+      },
+      "kind": "FunctionType",
+      "to": {
+        "kind": "StringType",
+        "loc": {
+          "end": {
+            "column": 17,
+            "line": 1,
+            "offset": 16,
+          },
+          "source": "test.relt",
+          "start": {
+            "column": 11,
+            "line": 1,
+            "offset": 10,
+          },
+        },
+      },
+    },
+    "value": {
+      "kind": "TypedIdentifierExpression",
+      "name": "x",
+      "type": {
+        "kind": "StringType",
+        "loc": {
+          "end": {
+            "column": 17,
+            "line": 1,
+            "offset": 16,
+          },
+          "source": "test.relt",
+          "start": {
+            "column": 11,
+            "line": 1,
+            "offset": 10,
+          },
+        },
+      },
+    },
+  },
+]
+`;
+
+exports[`should parse and type check function (2 args) 1`] = `
+[
+  {
+    "args": [
+      {
+        "kind": "TypedDeclareExpression",
+        "type": {
+          "kind": "StringType",
+          "loc": {
+            "end": {
+              "column": 17,
+              "line": 1,
+              "offset": 16,
+            },
+            "source": "test.relt",
+            "start": {
+              "column": 11,
+              "line": 1,
+              "offset": 10,
+            },
+          },
+        },
+        "value": {
+          "kind": "TypedIdentifierExpression",
+          "name": "x",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "end": {
+                "column": 17,
+                "line": 1,
+                "offset": 16,
+              },
+              "source": "test.relt",
+              "start": {
+                "column": 11,
+                "line": 1,
+                "offset": 10,
+              },
+            },
+          },
+        },
+      },
+      {
+        "kind": "TypedDeclareExpression",
+        "type": {
+          "kind": "StringType",
+          "loc": {
+            "end": {
+              "column": 28,
+              "line": 1,
+              "offset": 27,
+            },
+            "source": "test.relt",
+            "start": {
+              "column": 22,
+              "line": 1,
+              "offset": 21,
+            },
+          },
+        },
+        "value": {
+          "kind": "TypedIdentifierExpression",
+          "name": "y",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "end": {
+                "column": 28,
+                "line": 1,
+                "offset": 27,
+              },
+              "source": "test.relt",
+              "start": {
+                "column": 22,
+                "line": 1,
+                "offset": 21,
+              },
+            },
+          },
+        },
+      },
+    ],
+    "kind": "TypedFunctionExpression",
+    "name": "f",
+    "type": {
+      "from": {
+        "kind": "StringType",
+        "loc": {
+          "end": {
+            "column": 17,
+            "line": 1,
+            "offset": 16,
+          },
+          "source": "test.relt",
+          "start": {
+            "column": 11,
+            "line": 1,
+            "offset": 10,
+          },
+        },
+      },
+      "kind": "FunctionType",
+      "to": {
+        "from": {
+          "kind": "StringType",
+          "loc": {
+            "end": {
+              "column": 28,
+              "line": 1,
+              "offset": 27,
+            },
+            "source": "test.relt",
+            "start": {
+              "column": 22,
+              "line": 1,
+              "offset": 21,
+            },
+          },
+        },
+        "kind": "FunctionType",
+        "to": {
+          "kind": "StringType",
+          "loc": {
+            "end": {
+              "column": 17,
+              "line": 1,
+              "offset": 16,
+            },
+            "source": "test.relt",
+            "start": {
+              "column": 11,
+              "line": 1,
+              "offset": 10,
+            },
+          },
+        },
+      },
+    },
+    "value": {
+      "kind": "TypedIdentifierExpression",
+      "name": "x",
+      "type": {
+        "kind": "StringType",
+        "loc": {
+          "end": {
+            "column": 17,
+            "line": 1,
+            "offset": 16,
+          },
+          "source": "test.relt",
+          "start": {
+            "column": 11,
+            "line": 1,
+            "offset": 10,
+          },
+        },
+      },
+    },
+  },
+]
+`;
+
+exports[`should parse and type check function (2 args) 2`] = `
+[
+  {
+    "kind": "TypedTableExpression",
+    "type": {
+      "columns": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "IntegerType",
+            "loc": {
+              "end": {
+                "column": 19,
+                "line": 1,
+                "offset": 18,
+              },
+              "source": "test.relt",
+              "start": {
+                "column": 16,
+                "line": 1,
+                "offset": 15,
+              },
+            },
+          },
+        },
+      ],
+      "kind": "TableType",
+      "name": "t",
+    },
+    "value": {
+      "kind": "TypedAssignExpression",
+      "left": {
+        "kind": "TypedIdentifierExpression",
+        "name": "t",
+        "type": {
+          "columns": [
+            {
+              "name": "x",
+              "type": {
+                "kind": "IntegerType",
+                "loc": {
+                  "end": {
+                    "column": 19,
+                    "line": 1,
+                    "offset": 18,
+                  },
+                  "source": "test.relt",
+                  "start": {
+                    "column": 16,
+                    "line": 1,
+                    "offset": 15,
+                  },
+                },
+              },
+            },
+          ],
+          "kind": "TableType",
+          "name": "t",
+        },
+      },
+      "op": "=",
+      "right": {
+        "kind": "TypedObjectExpression",
+        "properties": [
+          {
+            "kind": "TypedDeclareExpression",
+            "type": {
+              "kind": "IntegerType",
+              "loc": {
+                "end": {
+                  "column": 19,
+                  "line": 1,
+                  "offset": 18,
+                },
+                "source": "test.relt",
+                "start": {
+                  "column": 16,
+                  "line": 1,
+                  "offset": 15,
+                },
+              },
+            },
+            "value": {
+              "kind": "TypedIdentifierExpression",
+              "name": "x",
+              "type": {
+                "kind": "IntegerType",
+                "loc": {
+                  "end": {
+                    "column": 19,
+                    "line": 1,
+                    "offset": 18,
+                  },
+                  "source": "test.relt",
+                  "start": {
+                    "column": 16,
+                    "line": 1,
+                    "offset": 15,
+                  },
+                },
+              },
+            },
+          },
+        ],
+        "type": {
+          "kind": "ObjectType",
+          "properties": [
+            {
+              "name": "x",
+              "type": {
+                "kind": "IntegerType",
+                "loc": {
+                  "end": {
+                    "column": 19,
+                    "line": 1,
+                    "offset": 18,
+                  },
+                  "source": "test.relt",
+                  "start": {
+                    "column": 16,
+                    "line": 1,
+                    "offset": 15,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      "type": {
+        "columns": [
+          {
+            "name": "x",
+            "type": {
+              "kind": "IntegerType",
+              "loc": {
+                "end": {
+                  "column": 19,
+                  "line": 1,
+                  "offset": 18,
+                },
+                "source": "test.relt",
+                "start": {
+                  "column": 16,
+                  "line": 1,
+                  "offset": 15,
+                },
+              },
+            },
+          },
+        ],
+        "kind": "TableType",
+        "name": "t",
+      },
+    },
+  },
+]
+`;
+
+exports[`should parse and type check identifier (known) 1`] = `
+[
+  {
+    "kind": "TypedLetExpression",
+    "type": {
+      "kind": "IntegerType",
+    },
+    "value": {
+      "kind": "TypedAssignExpression",
+      "left": {
+        "kind": "TypedIdentifierExpression",
+        "name": "x",
+        "type": {
+          "kind": "IntegerType",
+        },
+      },
+      "op": "=",
+      "right": {
+        "kind": "TypedIntegerExpression",
+        "type": {
+          "kind": "IntegerType",
+        },
+        "value": 0,
+      },
+      "type": {
+        "kind": "IntegerType",
+      },
+    },
+  },
+  {
+    "kind": "TypedIdentifierExpression",
+    "name": "x",
+    "type": {
+      "kind": "IntegerType",
+    },
+  },
+]
+`;
+
+exports[`should parse and type check identifier (known) 2`] = `
+[
+  {
+    "args": [],
+    "kind": "TypedFunctionExpression",
+    "name": "f",
+    "type": {
+      "from": {
+        "kind": "UnitType",
+      },
+      "kind": "FunctionType",
+      "to": {
+        "kind": "IntegerType",
+      },
+    },
+    "value": {
+      "kind": "TypedIntegerExpression",
+      "type": {
+        "kind": "IntegerType",
+      },
+      "value": 1,
+    },
+  },
+]
+`;
+
+exports[`should parse and type check identifier (unknown) 1`] = `
+[
+  {
+    "kind": "TypedIdentifierExpression",
+    "name": "x",
+    "type": {
+      "kind": "NeverType",
+    },
+  },
+]
+`;
+
+exports[`should parse and type check integers 1`] = `
+[
+  {
+    "kind": "TypedIntegerExpression",
+    "type": {
+      "kind": "IntegerType",
+    },
+    "value": 1,
+  },
+]
+`;
+
+exports[`should parse and type check integers 2`] = `
+[
+  {
+    "kind": "TypedFloatExpression",
+    "type": {
+      "kind": "FloatType",
+    },
+    "value": "1.02",
+  },
+]
+`;
+
+exports[`should parse and type check non empty strings 1`] = `
+[
+  {
+    "kind": "TypedStringExpression",
+    "type": {
+      "kind": "StringType",
+    },
+    "value": "s",
+  },
+]
+`;
+
+exports[`should parse and type check non empty strings 2`] = `
+[
+  {
+    "kind": "TypedStringExpression",
+    "type": {
+      "kind": "StringType",
+    },
+    "value": "sasdkljaskl;jdsa;lmd;aklsdjnmklsadnmkals;'dnas;kldns;akond;",
+  },
+]
+`;
+
+exports[`should parse and type check null 1`] = `
+[
+  {
+    "kind": "TypedNullExpression",
+    "type": {
+      "kind": "NullType",
+    },
+  },
+]
+`;
+
+exports[`should parse and type check placeholders (kind) 1`] = `
+[
+  {
+    "kind": "TypedPlaceholderExpression",
+    "kindCondition": "@",
+    "name": "A",
+    "type": {
+      "kind": "AnyType",
+    },
+    "typeCondition": undefined,
+  },
+]
+`;
+
+exports[`should parse and type check placeholders (spread + override) 1`] = `
+[
+  {
+    "kind": "TypedPlaceholderExpression",
+    "kindCondition": "@",
+    "name": "A",
+    "type": {
+      "kind": "AnyType",
+    },
+    "typeCondition": undefined,
+  },
+]
+`;
+
+exports[`should parse and type check placeholders (spread) 1`] = `
+[
+  {
+    "kind": "TypedPlaceholderExpression",
+    "kindCondition": "@",
+    "name": "A",
+    "type": {
+      "kind": "AnyType",
+    },
+    "typeCondition": undefined,
+  },
+]
+`;
+
+exports[`should parse and type check placeholders (type) 1`] = `
+[
+  {
+    "kind": "TypedPlaceholderExpression",
+    "kindCondition": undefined,
+    "name": "A",
+    "type": {
+      "kind": "AnyType",
+    },
+    "typeCondition": "table",
+  },
+]
+`;
+
+exports[`should parse and type check placeholders 1`] = `
+[
+  {
+    "kind": "TypedPlaceholderExpression",
+    "kindCondition": undefined,
+    "name": "A",
+    "type": {
+      "kind": "AnyType",
+    },
+    "typeCondition": undefined,
+  },
+]
+`;
+
+exports[`should parse and type check table 1`] = `
+[
+  {
+    "kind": "TypedTableExpression",
+    "type": {
+      "columns": [
+        {
+          "name": "x",
+          "type": {
+            "kind": "IntegerType",
+            "loc": {
+              "end": {
+                "column": 19,
+                "line": 1,
+                "offset": 18,
+              },
+              "source": "test.relt",
+              "start": {
+                "column": 16,
+                "line": 1,
+                "offset": 15,
+              },
+            },
+          },
+        },
+      ],
+      "kind": "TableType",
+      "name": "t",
+    },
+    "value": {
+      "kind": "TypedAssignExpression",
+      "left": {
+        "kind": "TypedIdentifierExpression",
+        "name": "t",
+        "type": {
+          "columns": [
+            {
+              "name": "x",
+              "type": {
+                "kind": "IntegerType",
+                "loc": {
+                  "end": {
+                    "column": 19,
+                    "line": 1,
+                    "offset": 18,
+                  },
+                  "source": "test.relt",
+                  "start": {
+                    "column": 16,
+                    "line": 1,
+                    "offset": 15,
+                  },
+                },
+              },
+            },
+          ],
+          "kind": "TableType",
+          "name": "t",
+        },
+      },
+      "op": "=",
+      "right": {
+        "kind": "TypedObjectExpression",
+        "properties": [
+          {
+            "kind": "TypedDeclareExpression",
+            "type": {
+              "kind": "IntegerType",
+              "loc": {
+                "end": {
+                  "column": 19,
+                  "line": 1,
+                  "offset": 18,
+                },
+                "source": "test.relt",
+                "start": {
+                  "column": 16,
+                  "line": 1,
+                  "offset": 15,
+                },
+              },
+            },
+            "value": {
+              "kind": "TypedIdentifierExpression",
+              "name": "x",
+              "type": {
+                "kind": "IntegerType",
+                "loc": {
+                  "end": {
+                    "column": 19,
+                    "line": 1,
+                    "offset": 18,
+                  },
+                  "source": "test.relt",
+                  "start": {
+                    "column": 16,
+                    "line": 1,
+                    "offset": 15,
+                  },
+                },
+              },
+            },
+          },
+        ],
+        "type": {
+          "kind": "ObjectType",
+          "properties": [
+            {
+              "name": "x",
+              "type": {
+                "kind": "IntegerType",
+                "loc": {
+                  "end": {
+                    "column": 19,
+                    "line": 1,
+                    "offset": 18,
+                  },
+                  "source": "test.relt",
+                  "start": {
+                    "column": 16,
+                    "line": 1,
+                    "offset": 15,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      "type": {
+        "columns": [
+          {
+            "name": "x",
+            "type": {
+              "kind": "IntegerType",
+              "loc": {
+                "end": {
+                  "column": 19,
+                  "line": 1,
+                  "offset": 18,
+                },
+                "source": "test.relt",
+                "start": {
+                  "column": 16,
+                  "line": 1,
+                  "offset": 15,
+                },
+              },
+            },
+          },
+        ],
+        "kind": "TableType",
+        "name": "t",
+      },
+    },
+  },
+]
+`;
+
+exports[`should parse and type check tuples (empty) 1`] = `
+[
+  {
+    "kind": "TypedArrayExpression",
+    "type": {
+      "kind": "TupleType",
+      "types": [],
+    },
+    "values": [],
+  },
+]
+`;
+
+exports[`should parse and type check tuples (multi) 1`] = `
+[
+  {
+    "kind": "TypedArrayExpression",
+    "type": {
+      "kind": "TupleType",
+      "types": [
+        {
+          "kind": "IntegerType",
+        },
+        {
+          "kind": "FloatType",
+        },
+      ],
+    },
+    "values": [
+      {
+        "kind": "TypedIntegerExpression",
+        "type": {
+          "kind": "IntegerType",
+        },
+        "value": 0,
+      },
+      {
+        "kind": "TypedFloatExpression",
+        "type": {
+          "kind": "FloatType",
+        },
+        "value": "0.4",
+      },
+    ],
+  },
+]
+`;
+
+exports[`should parse and type check tuples (singular) 1`] = `
+[
+  {
+    "kind": "TypedArrayExpression",
+    "type": {
+      "kind": "ArrayType",
+      "of": {
+        "kind": "IntegerType",
+      },
+    },
+    "values": [
+      {
+        "kind": "TypedIntegerExpression",
+        "type": {
+          "kind": "IntegerType",
+        },
+        "value": 0,
+      },
+    ],
+  },
+]
+`;
+
+exports[`should parse and type check tuples 1`] = `
+[
+  {
+    "kind": "TypedArrayExpression",
+    "type": {
+      "kind": "TupleType",
+      "types": [],
+    },
+    "values": [],
+  },
+]
+`;

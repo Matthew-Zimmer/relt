@@ -46,6 +46,7 @@ export interface LetExpression {
 export interface TableExpression {
   kind: "TableExpression";
   value: Expression;
+  hooks: Expression[];
   loc: Location;
 }
 
@@ -188,7 +189,7 @@ export interface DotExpression {
 export interface ApplicationExpression {
   kind: "ApplicationExpression";
   left: Expression;
-  right: Expression;
+  args: Expression[];
   loc: Location;
 }
 

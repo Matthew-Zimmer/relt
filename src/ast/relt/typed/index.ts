@@ -54,6 +54,7 @@ export interface TypedTableExpression<V extends TypedTableExpressionValue = Type
   kind: "TypedTableExpression";
   value: V;
   type: TableType;
+  hooks: TypedExpression<FunctionType>[];
 }
 
 export interface TypedFunctionExpression {
@@ -210,10 +211,10 @@ export interface TypedApplicationExpression {
   type: Type;
 }
 
-export interface TypedIdentifierExpression {
+export interface TypedIdentifierExpression<N extends string = string, T extends Type = Type> {
   kind: "TypedIdentifierExpression";
-  name: string;
-  type: Type;
+  name: N;
+  type: T;
 }
 
 export interface TypedPlaceholderExpression {
@@ -299,6 +300,5 @@ export interface TypedIndexExpression {
 export interface TypedInternalExpression {
   kind: "TypedInternalExpression";
   value: (e: TypedExpression) => TypedExpression,
-  type: NeverType;
+  type: FunctionType;
 }
-

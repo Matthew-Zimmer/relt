@@ -35,7 +35,7 @@ export function kids(e: Expression): Expression[] {
     case "DropExpression": return [e.left, e.right];
     case "SelectExpression": return [e.left, e.right];
     case "DotExpression": return [e.left, e.right];
-    case "ApplicationExpression": return [e.left, e.right];
+    case "ApplicationExpression": return [e.left, ...e.args];
     case "JoinExpression": return e.on === undefined ? [e.left, e.right] : [e.left, e.right, e.on];
     case "GroupByExpression": return [e.value, e.by, e.agg];
     case "BlockExpression": return e.expressions;
@@ -74,7 +74,7 @@ export function fromKids(e: Expression, kids: Expression[]): Expression {
     case "DropExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
     case "SelectExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
     case "DotExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
-    case "ApplicationExpression": return { ...e, left: kids[0], right: kids[1] }; // [e.left, e.right];
+    case "ApplicationExpression": return { ...e, left: kids[0], args: kids.slice(1) }; // [e.left, e.right];
     case "JoinExpression": return { ...e, left: kids[0], right: kids[1], on: kids[2] }; // e.on === undefined ? [e.left, e.right] : [e.left, e.right, e.on];
     case "GroupByExpression": return { ...e, value: kids[0], by: kids[1], agg: kids[2] }; // [e.value, e.by, e.agg];
     case "BlockExpression": return { ...e, expressions: kids }; // e.expressions;
