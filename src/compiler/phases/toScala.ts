@@ -1,15 +1,11 @@
 import { readFileSync } from "fs";
-import { readFile } from "fs/promises";
-import { normalize } from "../ast/relt/typed/utils";
-import { inspect } from "util";
-import { toTypedExpression } from "..";
+import { relt } from "../ast/relt/builder";
 import { TypedTopLevelExpression } from "../ast/relt/topLevel";
 import { AnyType, TableType, Type } from "../ast/relt/type";
-import { TypedApplicationExpression, TypedAssignExpression, TypedDropExpression, TypedExpression, TypedGroupByExpression, TypedIdentifierExpression, TypedJoinExpression, TypedObjectExpression, TypedObjectExpressionProperty, TypedSelectExpression, TypedTableExpression, TypedUnionExpression, TypedWhereExpression, TypedWithExpression } from "../ast/relt/typed";
-import { visitVoid } from "../ast/relt/typed/utils";
-import { InternalError, reportInternalError, reportUserError, UserError } from "../errors";
+import { TypedAssignExpression, TypedDropExpression, TypedExpression, TypedGroupByExpression, TypedIdentifierExpression, TypedJoinExpression, TypedObjectExpression, TypedObjectExpressionProperty, TypedSelectExpression, TypedTableExpression, TypedUnionExpression, TypedWhereExpression, TypedWithExpression } from "../ast/relt/typed";
+import { normalize, visitVoid } from "../ast/relt/typed/utils";
+import { InternalError, reportInternalError, reportUserError } from "../errors";
 import { Scope } from "./typecheck";
-import { relt } from "../ast/relt/builder";
 
 export function fetchPath(path: string): string {
   while (path.includes("$")) {
