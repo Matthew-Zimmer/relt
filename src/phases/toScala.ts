@@ -1,12 +1,17 @@
+import { readFileSync } from "fs";
 import { readFile } from "fs/promises";
+import { normalize } from "../ast/relt/typed/utils";
+import { inspect } from "util";
 import { toTypedExpression } from "..";
 import { TypedTopLevelExpression } from "../ast/relt/topLevel";
-import { TableType } from "../ast/relt/type";
-import { TypedExpression } from "../ast/relt/typed";
+import { AnyType, TableType } from "../ast/relt/type";
+import { TypedApplicationExpression, TypedAssignExpression, TypedDropExpression, TypedExpression, TypedGroupByExpression, TypedIdentifierExpression, TypedJoinExpression, TypedObjectExpression, TypedObjectExpressionProperty, TypedSelectExpression, TypedTableExpression, TypedUnionExpression, TypedWhereExpression, TypedWithExpression } from "../ast/relt/typed";
 import { visitVoid } from "../ast/relt/typed/utils";
-import { InternalError, reportInternalError, reportUserError } from "../errors";
+import { InternalError, reportInternalError, reportUserError, UserError } from "../errors";
+import { Scope } from "./typecheck";
+import { relt } from "../ast/relt/builder";
 
-export async function fetchPath(path: string): Promise<string> {
+export function fetchPath(path: string): string {
   while (path.includes("$")) {
     const idx = path.indexOf("$");
     const end = path.indexOf("/", idx);
@@ -17,7 +22,7 @@ export async function fetchPath(path: string): Promise<string> {
     path = path.slice(0, idx) + value + path.slice(end);
   }
   if (path.startsWith('file://'))
-    return (await readFile(path.slice(7))).toString();
+    return readFileSync(path.slice(7)).toString();
   else
     reportUserError(`Trying to fetch unknown path: ${path}`);
 }
@@ -34,7 +39,7 @@ export interface DatasetHandler {
 }
 
 export interface TableHook {
-  emitDataset: (ctx: EmitDatasetContext) => Promise<DatasetHandler>;
+  emitDataset?: (ctx: EmitDatasetContext) => DatasetHandler;
 }
 
 export interface EmitDatasetContext {
@@ -42,7 +47,7 @@ export interface EmitDatasetContext {
   toDs: string;
   name: string;
   typeName: string;
-  load: (name: string) => (path: string) => Promise<Template>;
+  load: (name: string) => (path: string) => Template;
   project: string;
 }
 
@@ -55,6 +60,8 @@ export interface TableInfo {
   value: TypedExpression<TableType>;
   incoming: number[];
   outgoing: number[];
+  datasetHandler: string;
+  isSource: boolean;
 }
 
 export type TableInfos = Record<string, TableInfo>;
@@ -65,10 +72,15 @@ export function gatherTableInfos(e: TypedExpression[]): TableInfos {
   const addTable = (x: TypedExpression & { type: TableType }) => {
     if (x.type.name in tables)
       reportInternalError(`While gathering tables ${x.type.name} is already found`);
-    tables[x.type.name] = { id: c++, value: x, incoming: [], outgoing: [] };
+    tables[x.type.name] = { id: c++, value: x, incoming: [], outgoing: [], datasetHandler: `${x.type.name}DatasetHandler`, isSource: false };
   };
   e.forEach(x => visitVoid(x, {
-    TypedTableExpression: addTable,
+    TypedTableExpression: (x: TypedTableExpression) => {
+      if (x.value.kind === "TypedAssignExpression" && x.value.right.kind !== "TypedObjectExpression") return;
+      if (x.type.name in tables)
+        reportInternalError(`While gathering tables ${x.type.name} is already found`);
+      tables[x.type.name] = { id: c++, value: x, incoming: [], outgoing: [], datasetHandler: `${x.type.name}DatasetHandler`, isSource: false };
+    },
     TypedJoinExpression: addTable,
     TypedUnionExpression: addTable,
     TypedGroupByExpression: addTable,
@@ -101,7 +113,12 @@ export function gatherTableInfos(e: TypedExpression[]): TableInfos {
       v.outgoing.push(s.id);
     },
     TypedWhereExpression: unaryAddDeps,
-    TypedWithExpression: binAddDeps,
+    TypedWithExpression: x => {
+      const l = tables[(x.left.type as TableType).name];
+      const s = tables[x.type.name];
+      s.incoming.push(l.id);
+      l.outgoing.push(s.id);
+    },
     TypedDropExpression: unaryAddDeps,
     TypedSelectExpression: unaryAddDeps,
   }));
@@ -109,6 +126,17 @@ export function gatherTableInfos(e: TypedExpression[]): TableInfos {
     tables[k].incoming = [...new Set(tables[k].incoming)];
     tables[k].outgoing = [...new Set(tables[k].outgoing)];
   }
+
+  e.forEach(x => visitVoid(x, {
+    TypedTableExpression: (x: TypedTableExpression) => {
+      if (x.value.kind === "TypedAssignExpression" && x.value.right.kind !== "TypedObjectExpression") {
+        const sub = (x.value.right.type as TableType).name;
+        tables[x.type.name] = tables[sub];
+        delete tables[sub];
+      }
+    },
+  }));
+
   return tables;
 }
 
@@ -174,107 +202,1066 @@ export function toSpark(e: TypedExpression): string {
   }
 }
 
-export function deriveDefaultTableHook(name: string, info: TableInfo): TableHook {
-  const value = info.value;
-  return {
-    async emitDataset(ctx) {
-      switch (value.kind) {
-        case "TypedJoinExpression": {
-          (await ctx.load("JoinDatasetHandlerClass")("file://$RELT_HOME/templates/utils/joinDatasetHandler.scala")).emitOnce();
-          const t = await ctx.load("JoinDatasetHandler")("file://$RELT_HOME/templates/joinDatasetHandler.scala");
-          t.replace("_NAME_")(ctx.name);
-          t.replace("_PROJECT_")(ctx.project);
-          t.replace("_TYPE_")(ctx.typeName);
-          t.replace("_L_TYPE_")((value.left.type as TableType).name);
-          t.replace("_R_TYPE_")((value.right.type as TableType).name);
-          t.replace("_TO_DS_")(ctx.toDs);
-          t.replace("_TO_DSS_")(ctx.toDss);
-          t.replace("_TO_L_DS_")(`(dss) => dss._${info.incoming[0] + 1}`);
-          t.replace("_TO_R_DS_")(`(dss) => dss._${info.incoming[1] + 1}`);
-          t.replace("_TO_CONDITION_")(`(l, r) => ${toSpark(value.on)}`);
-          t.replace("_METHOD_")(value.method);
-          t.replace("_DROPS_")(`Seq()`); // TODO empty list for now
-          t.emit();
-          return { name: `${ctx.name}DatasetHandler` };
-        }
-        case "TypedUnionExpression": {
-          (await ctx.load("UnionDatasetHandlerClass")("file://$RELT_HOME/templates/utils/unionDatasetHandler.scala")).emitOnce();
-          const t = await ctx.load("UnionDatasetHandler")("file://$RELT_HOME/templates/unionDatasetHandler.scala");
-          t.replace("_NAME_")(ctx.name);
-          t.replace("_PROJECT_")(ctx.project);
-          t.replace("_TYPE_")(ctx.typeName);
-          t.replace("_L_TYPE_")((value.left.type as TableType).name);
-          t.replace("_R_TYPE_")((value.right.type as TableType).name);
-          t.replace("_TO_DS_")(ctx.toDs);
-          t.replace("_TO_DSS_")(ctx.toDss);
-          t.replace("_TO_L_DS_")(`(dss) => dss._${info.incoming[0] + 1}`);
-          t.replace("_TO_R_DS_")(`(dss) => dss._${info.incoming[1] + 1}`);
-          t.emit();
-          return { name: `${ctx.name}DatasetHandler` };
-        }
-        case "TypedGroupByExpression": {
-          reportInternalError(`TODO`);
-        }
-        case "TypedWhereExpression": {
-          (await ctx.load("JoinDatasetHandlerClass")("file://$RELT_HOME/templates/utils/whereDatasetHandler.scala")).emitOnce();
-          const t = await ctx.load("JoinDatasetHandler")("file://$RELT_HOME/templates/whereDatasetHandler.scala");
-          t.replace("_NAME_")(ctx.name);
-          t.replace("_PROJECT_")(ctx.project);
-          t.replace("_TYPE_")(ctx.typeName);
-          t.replace("_TO_DS_")(ctx.toDs);
-          t.replace("_TO_DSS_")(ctx.toDss);
-          t.replace("_TO_VALUE_DS_")(`(dss) => dss._${info.incoming[0] + 1}`);
-          t.replace("_TO_CONDITION_")(`(l, r) => ${toSpark(value.right)}`);
-          t.emit();
-          return { name: `${ctx.name}DatasetHandler` };
-        }
-        case "TypedWithExpression": {
-          reportInternalError(`TODO`);
-        }
-        case "TypedDropExpression": {
-          (await ctx.load("JoinDatasetHandlerClass")("file://$RELT_HOME/templates/utils/dropDatasetHandler.scala")).emitOnce();
-          const t = await ctx.load("JoinDatasetHandler")("file://$RELT_HOME/templates/dropDatasetHandler.scala");
-          t.replace("_NAME_")(ctx.name);
-          t.replace("_PROJECT_")(ctx.project);
-          t.replace("_TYPE_")(ctx.typeName);
-          t.replace("_T_TYPE_")((value.left.type as TableType).name);
-          t.replace("_TO_DS_")(ctx.toDs);
-          t.replace("_TO_DSS_")(ctx.toDss);
-          t.replace("_TO_T_DS_")(`(dss) => dss._${info.incoming[0] + 1}`);
-          t.replace("_ON_")(`Seq()`); // TODO empty list for now
-          t.emit();
-          return { name: `${ctx.name}DatasetHandler` };
-        }
-        case "TypedSelectExpression": {
-          (await ctx.load("JoinDatasetHandlerClass")("file://$RELT_HOME/templates/utils/selectDatasetHandler.scala")).emitOnce();
-          const t = await ctx.load("JoinDatasetHandler")("file://$RELT_HOME/templates/selectDatasetHandler.scala");
-          t.replace("_NAME_")(ctx.name);
-          t.replace("_PROJECT_")(ctx.project);
-          t.replace("_TYPE_")(ctx.typeName);
-          t.replace("_T_TYPE_")((value.left.type as TableType).name);
-          t.replace("_TO_DS_")(ctx.toDs);
-          t.replace("_TO_DSS_")(ctx.toDss);
-          t.replace("_TO_T_DS_")(`(dss) => dss._${info.incoming[0] + 1}`);
-          t.replace("_ON_")(`Seq()`); // TODO empty list for now
-          t.emit();
-          return { name: `${ctx.name}DatasetHandler` };
-        }
-        default:
-          reportUserError(`Cannot derive the default table hook for ${info.value.kind}`);
+const addOps = {
+  "StringType": {
+    "StringType": {
+      "+": ["func", "concat"],
+    },
+  },
+  "FloatType": {
+    "FloatType": {
+      "+": ["infix", "+"],
+      "-": ["infix", "-"],
+    },
+  },
+  "IntType": {
+    "IntType": {
+      "+": ["infix", "+"],
+      "-": ["infix", "-"],
+    },
+  },
+};
+
+const mulOps = {
+  "FloatType": {
+    "FloatType": {
+      "*": ["infix", "*"],
+      "/": ["infix", "/"],
+      "%": ["infix", "%"],
+    },
+  },
+  "IntType": {
+    "IntType": {
+      "*": ["infix", "*"],
+      "/": ["infix", "/"],
+      "%": ["infix", "%"],
+    },
+  },
+};
+
+export function deriveSparkExpression(e: TypedExpression): string {
+  switch (e.kind) {
+    case "TypedInternalExpression":
+    case "TypedEvalExpression":
+    case "TypedPlaceholderExpression":
+    case "TypedDeclareExpression":
+    case "TypedFunctionExpression":
+    case "TypedSpreadExpression":
+    case "TypedTableExpression":
+    case "TypedUnionExpression":
+    case "TypedJoinExpression":
+    case "TypedGroupByExpression":
+    case "TypedWhereExpression":
+    case "TypedWithExpression":
+    case "TypedDropExpression":
+    case "TypedSelectExpression":
+    case "TypedObjectExpression":
+    case "TypedLetExpression":
+    case "TypedAssignExpression":
+    case "TypedDotExpression":
+    case "TypedApplicationExpression":
+    case "TypedBlockExpression":
+    case "TypedArrayExpression":
+    case "TypedIndexExpression":
+      reportInternalError(`Cannot convert ${e.kind} to spark`);
+    case "TypedConditionalExpression": {
+      const left = deriveSparkExpression(e.left);
+      switch (e.op) {
+        case "!?":
+          return `when(isNotNull(${left}), ${deriveSparkExpression(e.right)}).otherwise(${left})`;
+        case "??":
+          return `when(isNull(${left}), ${deriveSparkExpression(e.right)}).otherwise(${left})`;
       }
     }
-  };
+    case "TypedOrExpression":
+      return `(${toSpark(e.left)} or ${toSpark(e.right)})`;
+    case "TypedAndExpression":
+      return `(${toSpark(e.left)} and ${toSpark(e.right)})`;
+    case "TypedCmpExpression":
+      return `(${toSpark(e.left)} ${{ '==': '===', '!=': "=!=", '<=': '<=', '>=': '>=', '<': '<', '>': '>' }[e.op]} ${toSpark(e.right)})`;
+    case "TypedAddExpression": {
+      const res = (addOps as any)[e.left.type.kind][e.right.type.kind][e.op];
+      if (res === undefined)
+        reportInternalError(`Spark add op missing??`);
+      return res[0] === "func" ? `${res[1]}(${deriveSparkExpression(e.left)}, ${deriveSparkExpression(e.right)})` : `(${deriveSparkExpression(e.left)} ${res[1]} ${deriveSparkExpression(e.right)})`;
+    }
+    case "TypedMulExpression": {
+      const res = (mulOps as any)[e.left.type.kind][e.right.type.kind][e.op];
+      if (res === undefined)
+        reportInternalError(`Spark mul op missing??`);
+      return res[0] === "func" ? `${res[1]}(${deriveSparkExpression(e.left)}, ${deriveSparkExpression(e.right)})` : `(${deriveSparkExpression(e.left)} ${res[1]} ${deriveSparkExpression(e.right)})`;
+    }
+    case "TypedIdentifierExpression":
+      return `col("${e.name}")`;
+    case "TypedIntegerExpression":
+      return `lit(${e.value})`;
+    case "TypedFloatExpression":
+      return `lit(${Number(e.value)})`;
+    case "TypedStringExpression":
+      return `lit("${e.value}")`;
+    case "TypedEnvExpression":
+      return `lit(sys.env("${e.value}"))`;
+    case "TypedBooleanExpression":
+      return `lit(${e.value})`;
+    case "TypedNullExpression":
+      return `null`;
+  }
 }
 
-export async function toScala(tast: TypedTopLevelExpression[], hooks: Hooks) {
+export function deriveSparkExpressions(e: TypedObjectExpressionProperty[]) {
+  return e.map(x => {
+    switch (x.kind) {
+      case "TypedDeclareExpression":
+      case "TypedIdentifierExpression":
+      case "TypedSpreadExpression":
+        reportInternalError(`TODO`);
+      case "TypedAssignExpression":
+        switch (x.left.kind) {
+          case "TypedArrayExpression":
+          case "TypedObjectExpression":
+            reportInternalError(`TODO`);
+          case "TypedIdentifierExpression":
+            return `.withColumn("${x.left.name}", ${deriveSparkExpression(x.right)})`;
+        }
+    }
+  }).join('');
+}
+
+function unionDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedUnionExpression;
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.app(
+              rt.dot(
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("UnionDatasetHandlerClass")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/utils/unionDatasetHandler.scala"
+                  )
+                ),
+                rt.id("emitOnce")
+              ),
+              rt.block([])
+            ),
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("UnionDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/unionDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_L_TYPE_")
+              ),
+              rt.string((value.left.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_R_TYPE_")
+              ),
+              rt.string((value.right.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDs"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_L_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_R_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[info.incoming.length - 1] + 1}`)
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("UnionDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+function withDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedWithExpression;
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("WithDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/withDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_L_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_EXPRESSIONS_")
+              ),
+              rt.string(deriveSparkExpressions(value.right.properties))
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("WithDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+function joinDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedJoinExpression;
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.app(
+              rt.dot(
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("JoinDatasetHandlerClass")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/utils/joinDatasetHandler.scala"
+                  )
+                ),
+                rt.id("emitOnce")
+              ),
+              rt.block([])
+            ),
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("JoinDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/joinDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_L_TYPE_")
+              ),
+              rt.string((value.left.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_R_TYPE_")
+              ),
+              rt.string((value.right.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDs"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_L_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_R_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[info.incoming.length - 1] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_CONDITION_")
+              ),
+              rt.string(`(l, r) => ${deriveSparkExpression(value.on)}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_METHOD_")
+              ),
+              rt.string(`${value.method}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_DROPS_")
+              ),
+              rt.string(`Seq[String]()`)
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("JoinDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+function groupByDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedGroupByExpression;
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.app(
+              rt.dot(
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("GroupByDatasetHandlerClass")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/utils/groupByDatasetHandler.scala"
+                  )
+                ),
+                rt.id("emitOnce")
+              ),
+              rt.block([])
+            ),
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("GroupByDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/groupByDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_T_TYPE_")
+              ),
+              rt.string((value.value.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDs"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_T_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_COLS_")
+              ),
+              rt.string(`(ds) => Seq[Column]()`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_AGGS_")
+              ),
+              rt.string(`(ds) => Seq[Column]()`)
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("UnionDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+function whereDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedWhereExpression;
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.app(
+              rt.dot(
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("WhereDatasetHandlerClass")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/utils/whereDatasetHandler.scala"
+                  )
+                ),
+                rt.id("emitOnce")
+              ),
+              rt.block([])
+            ),
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("WhereDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/whereDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDs"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_VALUE_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_CONDITION_")
+              ),
+              rt.string(`(ds) => ${deriveSparkExpression(value.right)}`)
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("WhereDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+function dropDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedDropExpression;
+  const columns = value.right.kind === "TypedIdentifierExpression" ? [value.right.name] : value.right.values.map(x => x.name);
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.app(
+              rt.dot(
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("DropDatasetHandlerClass")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/utils/dropDatasetHandler.scala"
+                  )
+                ),
+                rt.id("emitOnce")
+              ),
+              rt.block([])
+            ),
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("DropDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/dropDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_T_TYPE_")
+              ),
+              rt.string((value.left.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDs"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_T_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_ON_")
+              ),
+              rt.string(`(ds) => Seq(${columns.map(x => `"${x}"`).join(", ")})`)
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("DropDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+function selectDatasetHandler(info: TableInfo) {
+  const rt = relt.typed;
+  const value = info.value as TypedSelectExpression;
+  const columns = value.right.kind === "TypedIdentifierExpression" ? [value.right.name] : value.right.values.map(x => x.name);
+  return (
+    rt.object([
+      rt.assign(
+        rt.id("emitDataset"),
+        rt.lambda(
+          [
+            rt.declare(
+              rt.id("ctx"),
+              relt.type.id("EmitDatasetContext")
+            ),
+          ],
+          rt.block([
+            rt.app(
+              rt.dot(
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("SelectDatasetHandlerClass")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/utils/selectDatasetHandler.scala"
+                  )
+                ),
+                rt.id("emitOnce")
+              ),
+              rt.block([])
+            ),
+            rt.let(
+              rt.assign(
+                rt.id("t"),
+                rt.app(
+                  rt.app(
+                    rt.dot(rt.id("ctx"), rt.id("load")),
+                    rt.string("SelectDatasetHandler")
+                  ),
+                  rt.string(
+                    "file://$RELT_HOME/templates/selectDatasetHandler.scala"
+                  )
+                )
+              )
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_NAME_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("name"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_PROJECT_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("project"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TYPE_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("typeName"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_T_TYPE_")
+              ),
+              rt.string((value.left.type as TableType).name)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDs"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_DSS_")
+              ),
+              rt.dot(rt.id("ctx"), rt.id("toDss"))
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_TO_T_DS_")
+              ),
+              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+            ),
+            rt.app(
+              rt.app(
+                rt.dot(rt.id("t"), rt.id("replace")),
+                rt.string("_ON_")
+              ),
+              rt.string(`(ds) => Seq(${columns.map(x => `"${x}"`).join(', ')})`)
+            ),
+            rt.app(
+              rt.dot(rt.id("t"), rt.id("emit")),
+              rt.block([])
+            ),
+            rt.object([
+              rt.assign(
+                rt.id("name"),
+                rt.add(
+                  rt.dot(rt.id("ctx"), rt.id("name")),
+                  "+",
+                  rt.string("SelectDatasetHandler")
+                )
+              ),
+              rt.assign(
+                rt.id("isSource"),
+                rt.bool(false),
+              ),
+            ]),
+          ])
+        )
+      ),
+    ])
+  );
+}
+
+export function deriveDefaultTableHook(name: string, info: TableInfo): TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>> {
+  const value = info.value;
+
+  switch (value.kind) {
+    case "TypedTableExpression":
+      return {
+        kind: "TypedObjectExpression",
+        properties: [],
+        type: { kind: "ObjectType", properties: [] }
+      };
+    case "TypedUnionExpression":
+      return unionDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    case "TypedWithExpression":
+      return withDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    case "TypedWhereExpression":
+      return whereDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    case "TypedDropExpression":
+      return dropDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    case "TypedSelectExpression":
+      return selectDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    case "TypedJoinExpression":
+      return joinDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    case "TypedGroupByExpression":
+      return groupByDatasetHandler(info) as TypedObjectExpression<TypedAssignExpression<TypedIdentifierExpression>>;
+    default:
+      reportInternalError(`Cannot derive default table hook for ${value.kind}`);
+  }
+}
+
+export function tryDot(e: TypedExpression, name: string, scope: Scope, errorMsg: string): [TypedExpression, Scope] {
+  try {
+    return normalize({ kind: "TypedDotExpression", left: e, right: { kind: "TypedIdentifierExpression", name, type: { kind: "AnyType" } }, type: { kind: "AnyType" } }, scope);
+  }
+  catch (e) {
+    if (e instanceof InternalError)
+      reportUserError(errorMsg);
+    else
+      throw e;
+  }
+}
+
+const any_t: AnyType = { kind: "AnyType" };
+
+export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Promise<[string]> {
   let scalaSourceCode = "";
 
   const templates: Record<string, Template> = {};
-  const loadTemplate = async (name: string, path: string) => {
+  const loadTemplate = (name: string, path: string) => {
     let hasEmitted = false;
     if (!(name in templates))
       templates[name] = {
-        value: await fetchPath(path),
+        value: fetchPath(path),
         emit() {
           scalaSourceCode += this.value;
         },
@@ -284,13 +1271,13 @@ export async function toScala(tast: TypedTopLevelExpression[], hooks: Hooks) {
           hasEmitted = true;
         },
         replace(pat) {
-          return (rep) => this.value = this.value.replace(pat, rep);
+          return (rep) => this.value = this.value.replace(RegExp(pat, 'g'), rep);
         }
       };
     return { ...templates[name], value: templates[name].value.slice(0) };
   };
 
-  const header = await loadTemplate("header", "file://$RELT_HOME/templates/utils/header.scala");
+  const header = loadTemplate("header", "file://$RELT_HOME/templates/utils/header.scala");
   header.replace("_PACKAGE_")("TEST");
   header.emit();
 
@@ -301,24 +1288,105 @@ export async function toScala(tast: TypedTopLevelExpression[], hooks: Hooks) {
   const tables = Object.entries(infos).sort(([, a], [, b]) => a.id - b.id);
 
   for (const [k, v] of tables) {
-    const hook = hooks.table[k] ?? deriveDefaultTableHook(k, v);
-    await hook.emitDataset({
-      name: `${k}`,
-      toDs: `(dss) => dss._${v.id + 1}`,
-      toDss: `(dss, ds) => (${tables.map(x => x[1].id === v.id ? 'ds' : `dss._${x[1].id + 1}`)})`,
-      project: "Test",
-      typeName: (v.value.type as TableType).name,
-      load: (name) => {
-        return async (path) => {
-          return await loadTemplate(name, path);
-        }
-      }
-    });
+    const userHooks = v.value.kind === "TypedTableExpression" ? v.value.hooks : [];
+    const [hookExpr] = normalize(userHooks.reduceRight<TypedExpression>((p, c) => ({ kind: "TypedApplicationExpression", left: c, right: p, type: { kind: "IdentifierType", name: "ReltTableHook" } }), deriveDefaultTableHook(k, v)), scope);
+
+    const [hook] = tryDot(hookExpr, "emitDataset", scope, `No emit dataset hook for table: ${k}`);
+
+    const emitDatasetCtx: TypedExpression = {
+      kind: "TypedObjectExpression",
+      properties: [
+        {
+          kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "name", type: any_t }, op: "=", right: {
+            kind: "TypedStringExpression", value: `${k}`, type: { kind: "StringType" },
+          }
+        },
+        {
+          kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "toDs", type: any_t }, op: "=", right: {
+            kind: "TypedStringExpression", value: `(dss) => dss._${v.id + 1}`, type: { kind: "StringType" },
+          }
+        },
+        {
+          kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "toDss", type: any_t }, op: "=", right: {
+            kind: "TypedStringExpression", value: `(dss, ds) => (${tables.map(x => x[1].id === v.id ? 'ds' : `dss._${x[1].id + 1}`)})`, type: { kind: "StringType" },
+          }
+        },
+        {
+          kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "project", type: any_t }, op: "=", right: {
+            kind: "TypedStringExpression", value: "Test", type: { kind: "StringType" },
+          }
+        },
+        {
+          kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "typeName", type: any_t }, op: "=", right: {
+            kind: "TypedStringExpression", value: (v.value.type as TableType).name, type: { kind: "StringType" },
+          }
+        },
+        {
+          kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "load", type: any_t }, op: "=", right: {
+            kind: "TypedInternalExpression", type: { kind: "FunctionType", from: any_t, to: any_t }, value: name => (
+              {
+                kind: "TypedInternalExpression", type: { kind: "FunctionType", from: any_t, to: any_t }, value: path => {
+                  if (name.kind !== "TypedStringExpression" || path.kind !== "TypedStringExpression")
+                    reportInternalError(`Called load with ${name.kind} and ${path.kind} This should have got caught in typechecking or some bug occurred in normalization`);
+                  const t = loadTemplate(name.value, path.value);
+                  return {
+                    kind: "TypedObjectExpression",
+                    properties: [
+                      {
+                        kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "replace", type: any_t }, op: "=", right: {
+                          kind: "TypedInternalExpression", type: { kind: "FunctionType", from: any_t, to: any_t }, value: find => ({
+                            kind: "TypedInternalExpression", type: { kind: "FunctionType", from: any_t, to: any_t }, value: replace => {
+                              if (find.kind !== "TypedStringExpression" || replace.kind !== "TypedStringExpression")
+                                reportInternalError(`Called load with ${name.kind} and ${path.kind} This should have got caught in typechecking or some bug occurred in normalization`);
+                              t.replace(find.value)(replace.value);
+                              return { kind: "TypedBlockExpression", expressions: [], type: { kind: "UnitType" } };
+                            }
+                          })
+                        }
+                      },
+                      {
+                        kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "emitOnce", type: any_t }, op: "=", right: {
+                          kind: "TypedInternalExpression", type: { kind: "FunctionType", from: any_t, to: any_t }, value: _ => {
+                            t.emitOnce();
+                            return { kind: "TypedBlockExpression", expressions: [], type: { kind: "UnitType" } };
+                          }
+                        }
+                      },
+                      {
+                        kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "emit", type: any_t }, op: "=", right: {
+                          kind: "TypedInternalExpression", type: { kind: "FunctionType", from: any_t, to: any_t }, value: _ => {
+                            t.emit();
+                            return { kind: "TypedBlockExpression", expressions: [], type: { kind: "UnitType" } };
+                          }
+                        }
+                      }
+                    ],
+                    type: { kind: "ObjectType", properties: [], }
+                  }
+                }
+              }
+            )
+          },
+        },
+      ],
+      type: { kind: "ObjectType", properties: [] }
+    };
+
+    const [x] = normalize({ kind: "TypedApplicationExpression", left: hook, right: emitDatasetCtx, type: { kind: "AnyType" } }, scope);
+    const [t] = tryDot(x, 'name', scope, `No name on table hook`);
+    if (t.kind !== "TypedStringExpression")
+      reportInternalError(``);
+    const [t1] = tryDot(x, 'isSource', scope, `No name on table hook`);
+    if (t1.kind !== "TypedBooleanExpression")
+      reportInternalError(``);
+
+    infos[k].datasetHandler = t.value;
+    infos[k].isSource = t1.value;
   }
 
   scalaSourceCode += mainClass("Test", "Project", infos);
 
-  return scalaSourceCode;
+  return [scalaSourceCode];
 }
 
 export function mainClass(packageName: string, projectName: string, infos: TableInfos) {
@@ -326,12 +1394,10 @@ export function mainClass(packageName: string, projectName: string, infos: Table
   return `\
 object ${projectName} {
   private val dg = new DependencyGraph[DatasetHandler[${packageName}.Datasets]](Map(
-${tables.map(x => `\t\t${x.id} -> new Vertex(${x.id}, Array(${x.incoming.join(', ')}), Array(${x.outgoing.join(', ')}), ${(x.value.type as TableType).name}DatasetHandler),`).join('\n')}
+${tables.map(x => `\t\t${x.id} -> new Vertex(${x.id}, Array(${x.incoming.join(', ')}), Array(${x.outgoing.join(', ')}), ${x.datasetHandler}),`).join('\n')}
   ))
   private val sourceTables = Map[String, Int](
-    "A" -> 0,
-    "B" -> 1,
-    "C" -> 2,
+${tables.filter(x => x.isSource).map(x => `\t\t"${(x.value.type as TableType).name}" -> ${x.id},`).join('\n')}
   )
   private val sourceTableRelations = Map[Int, Map[Int, Column]]()
   private val planParsers = Seq[PlanParser](

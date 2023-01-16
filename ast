@@ -1,0 +1,2461 @@
+[
+  {
+    "kind": "SugarDirective",
+    "command": "disable",
+    "name": "all",
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 2,
+        "line": 3,
+        "column": 1
+      },
+      "end": {
+        "offset": 19,
+        "line": 3,
+        "column": 18
+      }
+    }
+  },
+  {
+    "kind": "TypeIntroductionExpression",
+    "name": "DatasetHandler",
+    "type": {
+      "kind": "ObjectType",
+      "properties": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 53,
+                "line": 6,
+                "column": 9
+              },
+              "end": {
+                "offset": 59,
+                "line": 6,
+                "column": 15
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 47,
+              "line": 6,
+              "column": 3
+            },
+            "end": {
+              "offset": 59,
+              "line": 6,
+              "column": 15
+            }
+          }
+        }
+      ],
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 43,
+          "line": 5,
+          "column": 23
+        },
+        "end": {
+          "offset": 62,
+          "line": 7,
+          "column": 2
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 21,
+        "line": 5,
+        "column": 1
+      },
+      "end": {
+        "offset": 62,
+        "line": 7,
+        "column": 2
+      }
+    }
+  },
+  {
+    "kind": "TypeIntroductionExpression",
+    "name": "Template",
+    "type": {
+      "kind": "ObjectType",
+      "properties": [
+        {
+          "name": "replace",
+          "type": {
+            "kind": "FunctionType",
+            "from": {
+              "kind": "StringType",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 94,
+                  "line": 10,
+                  "column": 13
+                },
+                "end": {
+                  "offset": 100,
+                  "line": 10,
+                  "column": 19
+                }
+              }
+            },
+            "to": {
+              "kind": "FunctionType",
+              "from": {
+                "kind": "StringType",
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 106,
+                    "line": 10,
+                    "column": 25
+                  },
+                  "end": {
+                    "offset": 112,
+                    "line": 10,
+                    "column": 31
+                  }
+                }
+              },
+              "to": {
+                "kind": "StringType",
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 117,
+                    "line": 10,
+                    "column": 36
+                  },
+                  "end": {
+                    "offset": 123,
+                    "line": 10,
+                    "column": 42
+                  }
+                }
+              },
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 105,
+                  "line": 10,
+                  "column": 24
+                },
+                "end": {
+                  "offset": 123,
+                  "line": 10,
+                  "column": 42
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 93,
+                "line": 10,
+                "column": 12
+              },
+              "end": {
+                "offset": 123,
+                "line": 10,
+                "column": 42
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 84,
+              "line": 10,
+              "column": 3
+            },
+            "end": {
+              "offset": 123,
+              "line": 10,
+              "column": 42
+            }
+          }
+        },
+        {
+          "name": "emitOnce",
+          "type": {
+            "kind": "FunctionType",
+            "from": {
+              "kind": "UnitType"
+            },
+            "to": {
+              "kind": "UnitType",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 143,
+                  "line": 11,
+                  "column": 19
+                },
+                "end": {
+                  "offset": 147,
+                  "line": 11,
+                  "column": 23
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 137,
+                "line": 11,
+                "column": 13
+              },
+              "end": {
+                "offset": 147,
+                "line": 11,
+                "column": 23
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 127,
+              "line": 11,
+              "column": 3
+            },
+            "end": {
+              "offset": 147,
+              "line": 11,
+              "column": 23
+            }
+          }
+        },
+        {
+          "name": "emit",
+          "type": {
+            "kind": "FunctionType",
+            "from": {
+              "kind": "UnitType"
+            },
+            "to": {
+              "kind": "UnitType",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 163,
+                  "line": 12,
+                  "column": 15
+                },
+                "end": {
+                  "offset": 167,
+                  "line": 12,
+                  "column": 19
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 157,
+                "line": 12,
+                "column": 9
+              },
+              "end": {
+                "offset": 167,
+                "line": 12,
+                "column": 19
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 151,
+              "line": 12,
+              "column": 3
+            },
+            "end": {
+              "offset": 167,
+              "line": 12,
+              "column": 19
+            }
+          }
+        }
+      ],
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 80,
+          "line": 9,
+          "column": 17
+        },
+        "end": {
+          "offset": 170,
+          "line": 13,
+          "column": 2
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 64,
+        "line": 9,
+        "column": 1
+      },
+      "end": {
+        "offset": 170,
+        "line": 13,
+        "column": 2
+      }
+    }
+  },
+  {
+    "kind": "TypeIntroductionExpression",
+    "name": "EmitDatasetContext",
+    "type": {
+      "kind": "ObjectType",
+      "properties": [
+        {
+          "name": "load",
+          "type": {
+            "kind": "FunctionType",
+            "from": {
+              "kind": "StringType",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 209,
+                  "line": 16,
+                  "column": 10
+                },
+                "end": {
+                  "offset": 215,
+                  "line": 16,
+                  "column": 16
+                }
+              }
+            },
+            "to": {
+              "kind": "FunctionType",
+              "from": {
+                "kind": "StringType",
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 221,
+                    "line": 16,
+                    "column": 22
+                  },
+                  "end": {
+                    "offset": 227,
+                    "line": 16,
+                    "column": 28
+                  }
+                }
+              },
+              "to": {
+                "kind": "IdentifierType",
+                "name": "Template",
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 232,
+                    "line": 16,
+                    "column": 33
+                  },
+                  "end": {
+                    "offset": 240,
+                    "line": 16,
+                    "column": 41
+                  }
+                }
+              },
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 220,
+                  "line": 16,
+                  "column": 21
+                },
+                "end": {
+                  "offset": 240,
+                  "line": 16,
+                  "column": 41
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 208,
+                "line": 16,
+                "column": 9
+              },
+              "end": {
+                "offset": 240,
+                "line": 16,
+                "column": 41
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 202,
+              "line": 16,
+              "column": 3
+            },
+            "end": {
+              "offset": 240,
+              "line": 16,
+              "column": 41
+            }
+          }
+        },
+        {
+          "name": "toDss",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 251,
+                "line": 17,
+                "column": 10
+              },
+              "end": {
+                "offset": 257,
+                "line": 17,
+                "column": 16
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 244,
+              "line": 17,
+              "column": 3
+            },
+            "end": {
+              "offset": 257,
+              "line": 17,
+              "column": 16
+            }
+          }
+        },
+        {
+          "name": "toDs",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 267,
+                "line": 18,
+                "column": 9
+              },
+              "end": {
+                "offset": 273,
+                "line": 18,
+                "column": 15
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 261,
+              "line": 18,
+              "column": 3
+            },
+            "end": {
+              "offset": 273,
+              "line": 18,
+              "column": 15
+            }
+          }
+        },
+        {
+          "name": "name",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 283,
+                "line": 19,
+                "column": 9
+              },
+              "end": {
+                "offset": 289,
+                "line": 19,
+                "column": 15
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 277,
+              "line": 19,
+              "column": 3
+            },
+            "end": {
+              "offset": 289,
+              "line": 19,
+              "column": 15
+            }
+          }
+        },
+        {
+          "name": "typeName",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 303,
+                "line": 20,
+                "column": 13
+              },
+              "end": {
+                "offset": 309,
+                "line": 20,
+                "column": 19
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 293,
+              "line": 20,
+              "column": 3
+            },
+            "end": {
+              "offset": 309,
+              "line": 20,
+              "column": 19
+            }
+          }
+        }
+      ],
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 198,
+          "line": 15,
+          "column": 27
+        },
+        "end": {
+          "offset": 312,
+          "line": 21,
+          "column": 2
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 172,
+        "line": 15,
+        "column": 1
+      },
+      "end": {
+        "offset": 312,
+        "line": 21,
+        "column": 2
+      }
+    }
+  },
+  {
+    "kind": "TypeIntroductionExpression",
+    "name": "ReltTableHook",
+    "type": {
+      "kind": "ObjectType",
+      "properties": [
+        {
+          "name": "name",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 345,
+                "line": 24,
+                "column": 9
+              },
+              "end": {
+                "offset": 351,
+                "line": 24,
+                "column": 15
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 339,
+              "line": 24,
+              "column": 3
+            },
+            "end": {
+              "offset": 351,
+              "line": 24,
+              "column": 15
+            }
+          }
+        },
+        {
+          "name": "emitDataset",
+          "type": {
+            "kind": "OptionalType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 408,
+                "line": 25,
+                "column": 56
+              },
+              "end": {
+                "offset": 409,
+                "line": 25,
+                "column": 57
+              }
+            },
+            "of": {
+              "kind": "FunctionType",
+              "from": {
+                "kind": "IdentifierType",
+                "name": "EmitDatasetContext",
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 370,
+                    "line": 25,
+                    "column": 18
+                  },
+                  "end": {
+                    "offset": 388,
+                    "line": 25,
+                    "column": 36
+                  }
+                }
+              },
+              "to": {
+                "kind": "IdentifierType",
+                "name": "DatasetHandler",
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 393,
+                    "line": 25,
+                    "column": 41
+                  },
+                  "end": {
+                    "offset": 407,
+                    "line": 25,
+                    "column": 55
+                  }
+                }
+              },
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 369,
+                  "line": 25,
+                  "column": 17
+                },
+                "end": {
+                  "offset": 407,
+                  "line": 25,
+                  "column": 55
+                }
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 355,
+              "line": 25,
+              "column": 3
+            },
+            "end": {
+              "offset": 409,
+              "line": 25,
+              "column": 57
+            }
+          }
+        }
+      ],
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 335,
+          "line": 23,
+          "column": 22
+        },
+        "end": {
+          "offset": 412,
+          "line": 26,
+          "column": 2
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 314,
+        "line": 23,
+        "column": 1
+      },
+      "end": {
+        "offset": 412,
+        "line": 26,
+        "column": 2
+      }
+    }
+  },
+  {
+    "kind": "SugarDirective",
+    "command": "enable",
+    "name": "all",
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 414,
+        "line": 28,
+        "column": 1
+      },
+      "end": {
+        "offset": 430,
+        "line": 28,
+        "column": 17
+      }
+    }
+  },
+  {
+    "kind": "SugarDirective",
+    "command": "disable",
+    "name": "all",
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 434,
+        "line": 32,
+        "column": 1
+      },
+      "end": {
+        "offset": 451,
+        "line": 32,
+        "column": 18
+      }
+    }
+  },
+  {
+    "kind": "TypeIntroductionExpression",
+    "name": "DeltaSourceInfo",
+    "type": {
+      "kind": "ObjectType",
+      "properties": [
+        {
+          "name": "path",
+          "type": {
+            "kind": "StringType",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 486,
+                "line": 35,
+                "column": 9
+              },
+              "end": {
+                "offset": 492,
+                "line": 35,
+                "column": 15
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 480,
+              "line": 35,
+              "column": 3
+            },
+            "end": {
+              "offset": 492,
+              "line": 35,
+              "column": 15
+            }
+          }
+        }
+      ],
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 476,
+          "line": 34,
+          "column": 24
+        },
+        "end": {
+          "offset": 494,
+          "line": 36,
+          "column": 2
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 453,
+        "line": 34,
+        "column": 1
+      },
+      "end": {
+        "offset": 494,
+        "line": 36,
+        "column": 2
+      }
+    }
+  },
+  {
+    "kind": "FunctionExpression",
+    "name": "deltaFileSource",
+    "args": [
+      {
+        "kind": "DeclareExpression",
+        "value": {
+          "kind": "IdentifierExpression",
+          "name": "info",
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 517,
+              "line": 38,
+              "column": 22
+            },
+            "end": {
+              "offset": 521,
+              "line": 38,
+              "column": 26
+            }
+          }
+        },
+        "type": {
+          "kind": "IdentifierType",
+          "name": "DeltaSourceInfo",
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 523,
+              "line": 38,
+              "column": 28
+            },
+            "end": {
+              "offset": 538,
+              "line": 38,
+              "column": 43
+            }
+          }
+        },
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 517,
+            "line": 38,
+            "column": 22
+          },
+          "end": {
+            "offset": 538,
+            "line": 38,
+            "column": 43
+          }
+        }
+      },
+      {
+        "kind": "DeclareExpression",
+        "value": {
+          "kind": "IdentifierExpression",
+          "name": "prev",
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 540,
+              "line": 38,
+              "column": 45
+            },
+            "end": {
+              "offset": 544,
+              "line": 38,
+              "column": 49
+            }
+          }
+        },
+        "type": {
+          "kind": "IdentifierType",
+          "name": "ReltTableHook",
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 546,
+              "line": 38,
+              "column": 51
+            },
+            "end": {
+              "offset": 559,
+              "line": 38,
+              "column": 64
+            }
+          }
+        },
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 540,
+            "line": 38,
+            "column": 45
+          },
+          "end": {
+            "offset": 559,
+            "line": 38,
+            "column": 64
+          }
+        }
+      }
+    ],
+    "value": {
+      "kind": "ObjectExpression",
+      "properties": [
+        {
+          "kind": "AssignExpression",
+          "op": "=",
+          "right": {
+            "kind": "DotExpression",
+            "right": {
+              "kind": "IdentifierExpression",
+              "name": "name",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 581,
+                  "line": 39,
+                  "column": 16
+                },
+                "end": {
+                  "offset": 585,
+                  "line": 39,
+                  "column": 20
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 580,
+                "line": 39,
+                "column": 15
+              },
+              "end": {
+                "offset": 585,
+                "line": 39,
+                "column": 20
+              }
+            },
+            "left": {
+              "kind": "IdentifierExpression",
+              "name": "prev",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 576,
+                  "line": 39,
+                  "column": 11
+                },
+                "end": {
+                  "offset": 580,
+                  "line": 39,
+                  "column": 15
+                }
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 572,
+              "line": 39,
+              "column": 7
+            },
+            "end": {
+              "offset": 586,
+              "line": 39,
+              "column": 21
+            }
+          },
+          "left": {
+            "kind": "IdentifierExpression",
+            "name": "name",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 568,
+                "line": 39,
+                "column": 3
+              },
+              "end": {
+                "offset": 572,
+                "line": 39,
+                "column": 7
+              }
+            }
+          }
+        },
+        {
+          "kind": "AssignExpression",
+          "op": "=",
+          "right": {
+            "kind": "FunctionExpression",
+            "args": [
+              {
+                "kind": "DeclareExpression",
+                "value": {
+                  "kind": "IdentifierExpression",
+                  "name": "ctx",
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 611,
+                      "line": 40,
+                      "column": 24
+                    },
+                    "end": {
+                      "offset": 614,
+                      "line": 40,
+                      "column": 27
+                    }
+                  }
+                },
+                "type": {
+                  "kind": "IdentifierType",
+                  "name": "EmitDatasetContext",
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 616,
+                      "line": 40,
+                      "column": 29
+                    },
+                    "end": {
+                      "offset": 634,
+                      "line": 40,
+                      "column": 47
+                    }
+                  }
+                },
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 611,
+                    "line": 40,
+                    "column": 24
+                  },
+                  "end": {
+                    "offset": 634,
+                    "line": 40,
+                    "column": 47
+                  }
+                }
+              }
+            ],
+            "value": {
+              "kind": "BlockExpression",
+              "expressions": [
+                {
+                  "kind": "ApplicationExpression",
+                  "args": [],
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 761,
+                      "line": 41,
+                      "column": 120
+                    },
+                    "end": {
+                      "offset": 763,
+                      "line": 41,
+                      "column": 122
+                    }
+                  },
+                  "left": {
+                    "kind": "DotExpression",
+                    "right": {
+                      "kind": "IdentifierExpression",
+                      "name": "emitOnce",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 753,
+                          "line": 41,
+                          "column": 112
+                        },
+                        "end": {
+                          "offset": 761,
+                          "line": 41,
+                          "column": 120
+                        }
+                      }
+                    },
+                    "loc": {
+                      "source": "test.relt",
+                      "start": {
+                        "offset": 752,
+                        "line": 41,
+                        "column": 111
+                      },
+                      "end": {
+                        "offset": 761,
+                        "line": 41,
+                        "column": 120
+                      }
+                    },
+                    "left": {
+                      "kind": "ApplicationExpression",
+                      "args": [
+                        {
+                          "kind": "StringExpression",
+                          "value": "deltaFileSourceHelper",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 655,
+                              "line": 41,
+                              "column": 14
+                            },
+                            "end": {
+                              "offset": 678,
+                              "line": 41,
+                              "column": 37
+                            }
+                          }
+                        },
+                        {
+                          "kind": "StringExpression",
+                          "value": "file://$RELT_HOME/template/helper/deltaFileSourceDatasetHandler.scala",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 680,
+                              "line": 41,
+                              "column": 39
+                            },
+                            "end": {
+                              "offset": 751,
+                              "line": 41,
+                              "column": 110
+                            }
+                          }
+                        }
+                      ],
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 654,
+                          "line": 41,
+                          "column": 13
+                        },
+                        "end": {
+                          "offset": 752,
+                          "line": 41,
+                          "column": 111
+                        }
+                      },
+                      "left": {
+                        "kind": "DotExpression",
+                        "right": {
+                          "kind": "IdentifierExpression",
+                          "name": "load",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 650,
+                              "line": 41,
+                              "column": 9
+                            },
+                            "end": {
+                              "offset": 654,
+                              "line": 41,
+                              "column": 13
+                            }
+                          }
+                        },
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 649,
+                            "line": 41,
+                            "column": 8
+                          },
+                          "end": {
+                            "offset": 654,
+                            "line": 41,
+                            "column": 13
+                          }
+                        },
+                        "left": {
+                          "kind": "IdentifierExpression",
+                          "name": "ctx",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 646,
+                              "line": 41,
+                              "column": 5
+                            },
+                            "end": {
+                              "offset": 649,
+                              "line": 41,
+                              "column": 8
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "LetExpression",
+                  "value": {
+                    "kind": "AssignExpression",
+                    "op": "=",
+                    "right": {
+                      "kind": "ApplicationExpression",
+                      "args": [
+                        {
+                          "kind": "StringExpression",
+                          "value": "deltaFileSource",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 785,
+                              "line": 42,
+                              "column": 22
+                            },
+                            "end": {
+                              "offset": 802,
+                              "line": 42,
+                              "column": 39
+                            }
+                          }
+                        },
+                        {
+                          "kind": "StringExpression",
+                          "value": "file://$RELT_HOME/template/deltaFileSourceDatasetHandler.scala",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 804,
+                              "line": 42,
+                              "column": 41
+                            },
+                            "end": {
+                              "offset": 868,
+                              "line": 42,
+                              "column": 105
+                            }
+                          }
+                        }
+                      ],
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 784,
+                          "line": 42,
+                          "column": 21
+                        },
+                        "end": {
+                          "offset": 869,
+                          "line": 42,
+                          "column": 106
+                        }
+                      },
+                      "left": {
+                        "kind": "DotExpression",
+                        "right": {
+                          "kind": "IdentifierExpression",
+                          "name": "load",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 780,
+                              "line": 42,
+                              "column": 17
+                            },
+                            "end": {
+                              "offset": 784,
+                              "line": 42,
+                              "column": 21
+                            }
+                          }
+                        },
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 779,
+                            "line": 42,
+                            "column": 16
+                          },
+                          "end": {
+                            "offset": 784,
+                            "line": 42,
+                            "column": 21
+                          }
+                        },
+                        "left": {
+                          "kind": "IdentifierExpression",
+                          "name": "ctx",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 776,
+                              "line": 42,
+                              "column": 13
+                            },
+                            "end": {
+                              "offset": 779,
+                              "line": 42,
+                              "column": 16
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "loc": {
+                      "source": "test.relt",
+                      "start": {
+                        "offset": 773,
+                        "line": 42,
+                        "column": 10
+                      },
+                      "end": {
+                        "offset": 869,
+                        "line": 42,
+                        "column": 106
+                      }
+                    },
+                    "left": {
+                      "kind": "IdentifierExpression",
+                      "name": "t",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 772,
+                          "line": 42,
+                          "column": 9
+                        },
+                        "end": {
+                          "offset": 773,
+                          "line": 42,
+                          "column": 10
+                        }
+                      }
+                    }
+                  },
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 768,
+                      "line": 42,
+                      "column": 5
+                    },
+                    "end": {
+                      "offset": 869,
+                      "line": 42,
+                      "column": 106
+                    }
+                  }
+                },
+                {
+                  "kind": "ApplicationExpression",
+                  "args": [
+                    {
+                      "kind": "StringExpression",
+                      "value": "_TO_DSS_",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 885,
+                          "line": 44,
+                          "column": 15
+                        },
+                        "end": {
+                          "offset": 895,
+                          "line": 44,
+                          "column": 25
+                        }
+                      }
+                    },
+                    {
+                      "kind": "DotExpression",
+                      "right": {
+                        "kind": "IdentifierExpression",
+                        "name": "toDss",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 901,
+                            "line": 44,
+                            "column": 31
+                          },
+                          "end": {
+                            "offset": 906,
+                            "line": 44,
+                            "column": 36
+                          }
+                        }
+                      },
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 900,
+                          "line": 44,
+                          "column": 30
+                        },
+                        "end": {
+                          "offset": 906,
+                          "line": 44,
+                          "column": 36
+                        }
+                      },
+                      "left": {
+                        "kind": "IdentifierExpression",
+                        "name": "ctx",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 897,
+                            "line": 44,
+                            "column": 27
+                          },
+                          "end": {
+                            "offset": 900,
+                            "line": 44,
+                            "column": 30
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 884,
+                      "line": 44,
+                      "column": 14
+                    },
+                    "end": {
+                      "offset": 907,
+                      "line": 44,
+                      "column": 37
+                    }
+                  },
+                  "left": {
+                    "kind": "DotExpression",
+                    "right": {
+                      "kind": "IdentifierExpression",
+                      "name": "replace",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 877,
+                          "line": 44,
+                          "column": 7
+                        },
+                        "end": {
+                          "offset": 884,
+                          "line": 44,
+                          "column": 14
+                        }
+                      }
+                    },
+                    "loc": {
+                      "source": "test.relt",
+                      "start": {
+                        "offset": 876,
+                        "line": 44,
+                        "column": 6
+                      },
+                      "end": {
+                        "offset": 884,
+                        "line": 44,
+                        "column": 14
+                      }
+                    },
+                    "left": {
+                      "kind": "IdentifierExpression",
+                      "name": "t",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 875,
+                          "line": 44,
+                          "column": 5
+                        },
+                        "end": {
+                          "offset": 876,
+                          "line": 44,
+                          "column": 6
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "ApplicationExpression",
+                  "args": [
+                    {
+                      "kind": "StringExpression",
+                      "value": "_TO_DS_",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 922,
+                          "line": 45,
+                          "column": 15
+                        },
+                        "end": {
+                          "offset": 931,
+                          "line": 45,
+                          "column": 24
+                        }
+                      }
+                    },
+                    {
+                      "kind": "DotExpression",
+                      "right": {
+                        "kind": "IdentifierExpression",
+                        "name": "toDs",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 937,
+                            "line": 45,
+                            "column": 30
+                          },
+                          "end": {
+                            "offset": 941,
+                            "line": 45,
+                            "column": 34
+                          }
+                        }
+                      },
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 936,
+                          "line": 45,
+                          "column": 29
+                        },
+                        "end": {
+                          "offset": 941,
+                          "line": 45,
+                          "column": 34
+                        }
+                      },
+                      "left": {
+                        "kind": "IdentifierExpression",
+                        "name": "ctx",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 933,
+                            "line": 45,
+                            "column": 26
+                          },
+                          "end": {
+                            "offset": 936,
+                            "line": 45,
+                            "column": 29
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 921,
+                      "line": 45,
+                      "column": 14
+                    },
+                    "end": {
+                      "offset": 942,
+                      "line": 45,
+                      "column": 35
+                    }
+                  },
+                  "left": {
+                    "kind": "DotExpression",
+                    "right": {
+                      "kind": "IdentifierExpression",
+                      "name": "replace",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 914,
+                          "line": 45,
+                          "column": 7
+                        },
+                        "end": {
+                          "offset": 921,
+                          "line": 45,
+                          "column": 14
+                        }
+                      }
+                    },
+                    "loc": {
+                      "source": "test.relt",
+                      "start": {
+                        "offset": 913,
+                        "line": 45,
+                        "column": 6
+                      },
+                      "end": {
+                        "offset": 921,
+                        "line": 45,
+                        "column": 14
+                      }
+                    },
+                    "left": {
+                      "kind": "IdentifierExpression",
+                      "name": "t",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 912,
+                          "line": 45,
+                          "column": 5
+                        },
+                        "end": {
+                          "offset": 913,
+                          "line": 45,
+                          "column": 6
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "ApplicationExpression",
+                  "args": [
+                    {
+                      "kind": "StringExpression",
+                      "value": "_NAME_",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 957,
+                          "line": 46,
+                          "column": 15
+                        },
+                        "end": {
+                          "offset": 965,
+                          "line": 46,
+                          "column": 23
+                        }
+                      }
+                    },
+                    {
+                      "kind": "DotExpression",
+                      "right": {
+                        "kind": "IdentifierExpression",
+                        "name": "name",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 971,
+                            "line": 46,
+                            "column": 29
+                          },
+                          "end": {
+                            "offset": 975,
+                            "line": 46,
+                            "column": 33
+                          }
+                        }
+                      },
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 970,
+                          "line": 46,
+                          "column": 28
+                        },
+                        "end": {
+                          "offset": 975,
+                          "line": 46,
+                          "column": 33
+                        }
+                      },
+                      "left": {
+                        "kind": "IdentifierExpression",
+                        "name": "ctx",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 967,
+                            "line": 46,
+                            "column": 25
+                          },
+                          "end": {
+                            "offset": 970,
+                            "line": 46,
+                            "column": 28
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 956,
+                      "line": 46,
+                      "column": 14
+                    },
+                    "end": {
+                      "offset": 976,
+                      "line": 46,
+                      "column": 34
+                    }
+                  },
+                  "left": {
+                    "kind": "DotExpression",
+                    "right": {
+                      "kind": "IdentifierExpression",
+                      "name": "replace",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 949,
+                          "line": 46,
+                          "column": 7
+                        },
+                        "end": {
+                          "offset": 956,
+                          "line": 46,
+                          "column": 14
+                        }
+                      }
+                    },
+                    "loc": {
+                      "source": "test.relt",
+                      "start": {
+                        "offset": 948,
+                        "line": 46,
+                        "column": 6
+                      },
+                      "end": {
+                        "offset": 956,
+                        "line": 46,
+                        "column": 14
+                      }
+                    },
+                    "left": {
+                      "kind": "IdentifierExpression",
+                      "name": "t",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 947,
+                          "line": 46,
+                          "column": 5
+                        },
+                        "end": {
+                          "offset": 948,
+                          "line": 46,
+                          "column": 6
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "ApplicationExpression",
+                  "args": [
+                    {
+                      "kind": "StringExpression",
+                      "value": "_TYPE_",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 991,
+                          "line": 47,
+                          "column": 15
+                        },
+                        "end": {
+                          "offset": 999,
+                          "line": 47,
+                          "column": 23
+                        }
+                      }
+                    },
+                    {
+                      "kind": "DotExpression",
+                      "right": {
+                        "kind": "IdentifierExpression",
+                        "name": "typeName",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 1005,
+                            "line": 47,
+                            "column": 29
+                          },
+                          "end": {
+                            "offset": 1013,
+                            "line": 47,
+                            "column": 37
+                          }
+                        }
+                      },
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 1004,
+                          "line": 47,
+                          "column": 28
+                        },
+                        "end": {
+                          "offset": 1013,
+                          "line": 47,
+                          "column": 37
+                        }
+                      },
+                      "left": {
+                        "kind": "IdentifierExpression",
+                        "name": "ctx",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 1001,
+                            "line": 47,
+                            "column": 25
+                          },
+                          "end": {
+                            "offset": 1004,
+                            "line": 47,
+                            "column": 28
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 990,
+                      "line": 47,
+                      "column": 14
+                    },
+                    "end": {
+                      "offset": 1014,
+                      "line": 47,
+                      "column": 38
+                    }
+                  },
+                  "left": {
+                    "kind": "DotExpression",
+                    "right": {
+                      "kind": "IdentifierExpression",
+                      "name": "replace",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 983,
+                          "line": 47,
+                          "column": 7
+                        },
+                        "end": {
+                          "offset": 990,
+                          "line": 47,
+                          "column": 14
+                        }
+                      }
+                    },
+                    "loc": {
+                      "source": "test.relt",
+                      "start": {
+                        "offset": 982,
+                        "line": 47,
+                        "column": 6
+                      },
+                      "end": {
+                        "offset": 990,
+                        "line": 47,
+                        "column": 14
+                      }
+                    },
+                    "left": {
+                      "kind": "IdentifierExpression",
+                      "name": "t",
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 981,
+                          "line": 47,
+                          "column": 5
+                        },
+                        "end": {
+                          "offset": 982,
+                          "line": 47,
+                          "column": 6
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "ObjectExpression",
+                  "properties": [
+                    {
+                      "kind": "AssignExpression",
+                      "op": "=",
+                      "right": {
+                        "kind": "AddExpression",
+                        "op": "+",
+                        "right": {
+                          "kind": "StringExpression",
+                          "value": "DeltaFileSourceDatasetHandler",
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 1040,
+                              "line": 49,
+                              "column": 25
+                            },
+                            "end": {
+                              "offset": 1071,
+                              "line": 49,
+                              "column": 56
+                            }
+                          }
+                        },
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 1037,
+                            "line": 49,
+                            "column": 22
+                          },
+                          "end": {
+                            "offset": 1071,
+                            "line": 49,
+                            "column": 56
+                          }
+                        },
+                        "left": {
+                          "kind": "DotExpression",
+                          "right": {
+                            "kind": "IdentifierExpression",
+                            "name": "name",
+                            "loc": {
+                              "source": "test.relt",
+                              "start": {
+                                "offset": 1033,
+                                "line": 49,
+                                "column": 18
+                              },
+                              "end": {
+                                "offset": 1037,
+                                "line": 49,
+                                "column": 22
+                              }
+                            }
+                          },
+                          "loc": {
+                            "source": "test.relt",
+                            "start": {
+                              "offset": 1032,
+                              "line": 49,
+                              "column": 17
+                            },
+                            "end": {
+                              "offset": 1037,
+                              "line": 49,
+                              "column": 22
+                            }
+                          },
+                          "left": {
+                            "kind": "IdentifierExpression",
+                            "name": "ctx",
+                            "loc": {
+                              "source": "test.relt",
+                              "start": {
+                                "offset": 1029,
+                                "line": 49,
+                                "column": 14
+                              },
+                              "end": {
+                                "offset": 1032,
+                                "line": 49,
+                                "column": 17
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "loc": {
+                        "source": "test.relt",
+                        "start": {
+                          "offset": 1026,
+                          "line": 49,
+                          "column": 11
+                        },
+                        "end": {
+                          "offset": 1071,
+                          "line": 49,
+                          "column": 56
+                        }
+                      },
+                      "left": {
+                        "kind": "IdentifierExpression",
+                        "name": "name",
+                        "loc": {
+                          "source": "test.relt",
+                          "start": {
+                            "offset": 1022,
+                            "line": 49,
+                            "column": 7
+                          },
+                          "end": {
+                            "offset": 1026,
+                            "line": 49,
+                            "column": 11
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 1020,
+                      "line": 49,
+                      "column": 5
+                    },
+                    "end": {
+                      "offset": 1073,
+                      "line": 49,
+                      "column": 58
+                    }
+                  }
+                }
+              ],
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 639,
+                  "line": 40,
+                  "column": 52
+                },
+                "end": {
+                  "offset": 1079,
+                  "line": 50,
+                  "column": 6
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 605,
+                "line": 40,
+                "column": 18
+              },
+              "end": {
+                "offset": 1079,
+                "line": 50,
+                "column": 6
+              }
+            }
+          },
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 601,
+              "line": 40,
+              "column": 14
+            },
+            "end": {
+              "offset": 1080,
+              "line": 50,
+              "column": 7
+            }
+          },
+          "left": {
+            "kind": "IdentifierExpression",
+            "name": "emitDataset",
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 590,
+                "line": 40,
+                "column": 3
+              },
+              "end": {
+                "offset": 601,
+                "line": 40,
+                "column": 14
+              }
+            }
+          }
+        }
+      ],
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 564,
+          "line": 38,
+          "column": 69
+        },
+        "end": {
+          "offset": 1083,
+          "line": 51,
+          "column": 2
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 496,
+        "line": 38,
+        "column": 1
+      },
+      "end": {
+        "offset": 1083,
+        "line": 51,
+        "column": 2
+      }
+    }
+  },
+  {
+    "kind": "SugarDirective",
+    "command": "enable",
+    "name": "all",
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 1086,
+        "line": 54,
+        "column": 1
+      },
+      "end": {
+        "offset": 1102,
+        "line": 54,
+        "column": 17
+      }
+    }
+  },
+  {
+    "kind": "LetExpression",
+    "value": {
+      "kind": "AssignExpression",
+      "op": "=",
+      "right": {
+        "kind": "ApplicationExpression",
+        "args": [
+          {
+            "kind": "ObjectExpression",
+            "properties": [
+              {
+                "kind": "AssignExpression",
+                "op": "=",
+                "right": {
+                  "kind": "StringExpression",
+                  "value": "s3://path/to/delta/file",
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 1149,
+                      "line": 58,
+                      "column": 44
+                    },
+                    "end": {
+                      "offset": 1174,
+                      "line": 58,
+                      "column": 69
+                    }
+                  }
+                },
+                "loc": {
+                  "source": "test.relt",
+                  "start": {
+                    "offset": 1146,
+                    "line": 58,
+                    "column": 41
+                  },
+                  "end": {
+                    "offset": 1174,
+                    "line": 58,
+                    "column": 69
+                  }
+                },
+                "left": {
+                  "kind": "IdentifierExpression",
+                  "name": "path",
+                  "loc": {
+                    "source": "test.relt",
+                    "start": {
+                      "offset": 1142,
+                      "line": 58,
+                      "column": 37
+                    },
+                    "end": {
+                      "offset": 1146,
+                      "line": 58,
+                      "column": 41
+                    }
+                  }
+                }
+              }
+            ],
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 1140,
+                "line": 58,
+                "column": 35
+              },
+              "end": {
+                "offset": 1176,
+                "line": 58,
+                "column": 71
+              }
+            }
+          }
+        ],
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 1139,
+            "line": 58,
+            "column": 34
+          },
+          "end": {
+            "offset": 1177,
+            "line": 58,
+            "column": 72
+          }
+        },
+        "left": {
+          "kind": "IdentifierExpression",
+          "name": "deltaFileSource",
+          "loc": {
+            "source": "test.relt",
+            "start": {
+              "offset": 1124,
+              "line": 58,
+              "column": 19
+            },
+            "end": {
+              "offset": 1139,
+              "line": 58,
+              "column": 34
+            }
+          }
+        }
+      },
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 1121,
+          "line": 58,
+          "column": 16
+        },
+        "end": {
+          "offset": 1177,
+          "line": 58,
+          "column": 72
+        }
+      },
+      "left": {
+        "kind": "IdentifierExpression",
+        "name": "myDeltaFile",
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 1110,
+            "line": 58,
+            "column": 5
+          },
+          "end": {
+            "offset": 1121,
+            "line": 58,
+            "column": 16
+          }
+        }
+      }
+    },
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 1106,
+        "line": 58,
+        "column": 1
+      },
+      "end": {
+        "offset": 1177,
+        "line": 58,
+        "column": 72
+      }
+    }
+  },
+  {
+    "kind": "TableExpression",
+    "value": {
+      "kind": "AssignExpression",
+      "op": "=",
+      "right": {
+        "kind": "ObjectExpression",
+        "properties": [
+          {
+            "kind": "DeclareExpression",
+            "value": {
+              "kind": "IdentifierExpression",
+              "name": "id",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 1206,
+                  "line": 62,
+                  "column": 3
+                },
+                "end": {
+                  "offset": 1208,
+                  "line": 62,
+                  "column": 5
+                }
+              }
+            },
+            "type": {
+              "kind": "IntegerType",
+              "loc": {
+                "source": "test.relt",
+                "start": {
+                  "offset": 1210,
+                  "line": 62,
+                  "column": 7
+                },
+                "end": {
+                  "offset": 1213,
+                  "line": 62,
+                  "column": 10
+                }
+              }
+            },
+            "loc": {
+              "source": "test.relt",
+              "start": {
+                "offset": 1206,
+                "line": 62,
+                "column": 3
+              },
+              "end": {
+                "offset": 1213,
+                "line": 62,
+                "column": 10
+              }
+            }
+          }
+        ],
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 1202,
+            "line": 61,
+            "column": 11
+          },
+          "end": {
+            "offset": 1216,
+            "line": 63,
+            "column": 2
+          }
+        }
+      },
+      "loc": {
+        "source": "test.relt",
+        "start": {
+          "offset": 1199,
+          "line": 61,
+          "column": 8
+        },
+        "end": {
+          "offset": 1216,
+          "line": 63,
+          "column": 2
+        }
+      },
+      "left": {
+        "kind": "IdentifierExpression",
+        "name": "x",
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 1198,
+            "line": 61,
+            "column": 7
+          },
+          "end": {
+            "offset": 1199,
+            "line": 61,
+            "column": 8
+          }
+        }
+      }
+    },
+    "hooks": [
+      {
+        "kind": "IdentifierExpression",
+        "name": "myDeltaFile",
+        "loc": {
+          "source": "test.relt",
+          "start": {
+            "offset": 1180,
+            "line": 60,
+            "column": 2
+          },
+          "end": {
+            "offset": 1191,
+            "line": 60,
+            "column": 13
+          }
+        }
+      }
+    ],
+    "loc": {
+      "source": "test.relt",
+      "start": {
+        "offset": 1179,
+        "line": 60,
+        "column": 1
+      },
+      "end": {
+        "offset": 1216,
+        "line": 63,
+        "column": 2
+      }
+    }
+  }
+]

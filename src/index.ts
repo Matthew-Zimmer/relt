@@ -2,22 +2,23 @@ import { existsSync } from "fs";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { formatUntypedMany, formatTypedMany } from "./ast/relt/format";
 import { SugarDefinition, SugarDirective, TypedTopLevelExpression } from "./ast/relt/topLevel";
-import { TypedAssignExpression, TypedDeclareExpression, TypedExpression, TypedIdentifierExpression, TypedInternalExpression } from "./ast/relt/typed";
+import { TypedApplicationExpression, TypedAssignExpression, TypedDeclareExpression, TypedExpression, TypedIdentifierExpression, TypedInternalExpression } from "./ast/relt/typed";
 import { SparkProject } from "./ast/scala";
 import { reportInternalError, UserError } from "./errors";
 import { checkSugars } from "./phases/checkSugar";
 import { desugar } from "./phases/desugar";
 import { parse } from "./phases/parse";
 import { preTypeCheckDesugar } from "./phases/preTypeCheckDesugar";
-import { TableHook, toScala } from "./phases/toScala";
+import { deriveDefaultTableHook, TableHook, toScala } from "./phases/toScala";
 import { Context, Scope, shallowTypeCheck, typeCheck } from "./phases/typecheck";
 import { ReltProject } from "./project";
 import z from 'zod';
-import { normalize, ofKind } from "./ast/relt/typed/utils";
-import { TableType } from "./ast/relt/type";
+import { fromKids, normalize, ofKind, visit, visitMap, visitVoid } from "./ast/relt/typed/utils";
+import { FunctionType, TableType, Type } from "./ast/relt/type";
+import { toBuilderStringMany } from "./ast/relt/builder";
 
-function internalFunction(name: string, value: (e: TypedExpression) => TypedExpression): TypedAssignExpression {
-  return { kind: "TypedAssignExpression", left: { kind: "TypedIdentifierExpression", name, type: { kind: "AnyType" } }, op: "=", right: { kind: "TypedInternalExpression", type: { kind: "NeverType" }, value }, type: { kind: "AnyType" } };
+function internalFunction(name: string, value: (e: TypedExpression) => TypedExpression, type: FunctionType): TypedAssignExpression {
+  return { kind: "TypedAssignExpression", left: { kind: "TypedIdentifierExpression", name, type: { kind: "AnyType" } }, op: "=", right: { kind: "TypedInternalExpression", type, value }, type: { kind: "AnyType" } };
 }
 
 export function toTypedExpression(x: any): TypedExpression {
@@ -25,11 +26,10 @@ export function toTypedExpression(x: any): TypedExpression {
     case "bigint":
     case "symbol":
     case "undefined":
+    case "function":
       reportInternalError(`Cannot convert ${typeof x} to typed expression`);
     case "boolean":
       return { kind: "TypedBooleanExpression", value: x, type: { kind: "BooleanType" } };
-    case "function":
-      return { kind: "TypedInternalExpression", type: { kind: "NeverType" }, value: (e) => toTypedExpression(x(e)) };
     case "number":
       if (Number.isInteger(x))
         return { kind: "TypedIntegerExpression", value: x, type: { kind: "IntegerType" } };
@@ -94,6 +94,29 @@ export function toJS<T>(schema: z.Schema<T>, e: TypedExpression): T {
   return schema.parse(toJSUnsafe(e));
 }
 
+function deleteLocs(t: Type): Type {
+  delete (t as any).loc;
+  switch (t.kind) {
+    case "FunctionType":
+      deleteLocs(t.from);
+      deleteLocs(t.to);
+      break;
+    case "ObjectType":
+      t.properties.forEach(x => deleteLocs(x.type));
+      break;
+    case "OptionalType":
+      deleteLocs(t.of);
+      break;
+    case "TupleType":
+      t.types.forEach(deleteLocs);
+      break;
+    case "ArrayType":
+      deleteLocs(t.of);
+      break;
+  }
+  return t;
+}
+
 async function main() {
   const fileContent = (await readFile('test.relt')).toString();
 
@@ -129,20 +152,10 @@ async function main() {
     '&&': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
   };
 
-  let tableHooks: Record<string, TableHook> = {};
-
   let scope: Scope = {
     relt: {
       kind: "TypedObjectExpression",
-      properties: [
-        internalFunction("consumeTableMetaInfo", e => {
-          const [t, h] = (e as any).values;
-          tableHooks[(toJSUnsafe(h) as any).name] = toJS(z.object({
-            emitDataset: z.function(z.tuple([z.any()]), z.any())
-          }), h);
-          return t;
-        }),
-      ],
+      properties: [],
       type: { kind: "ObjectType", properties: [] },
     }
   };
@@ -173,11 +186,13 @@ async function main() {
 
   tast = desugar(tast);
 
+  // await writeFile('tast', toBuilderStringMany(tast.filter(x => x.kind !== "SugarDirective" && x.kind !== "TypeIntroductionExpression" && x.kind !== "TypedSugarDefinition") as TypedExpression[]));
+
+  // throw "STOP";
+
   await writeFile('test-3.relt', formatTypedMany(tast));
 
-  const scala = await toScala(tast, {
-    table: tableHooks,
-  });
+  const scala = await toScala(tast, scope);
 
   const reltProject: ReltProject = {
     mainFile: "test.relt",
@@ -193,7 +208,7 @@ async function main() {
     imports: [],
     name: "Test",
     package: "",
-    sourceCode: scala,
+    sourceCode: scala[0],
     types: [],
   };
 

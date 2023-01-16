@@ -1,33 +1,28 @@
 # -- relt.relt
 
-sugar TableIntro 0
-  on table $A~id = $B~@
-  then table $A = ($$ relt.consumeTableMetaInfo $B~@...rl0=[x,{ name = $A.name }])
-
 sugar disable all
 
 type DatasetHandler = {
   name: string,
+  isSource: string,
 }
 
 type Template = {
   replace: (string) => (string) => string,
+  emitOnce: () => unit,
+  emit: () => unit,
 }
 
 type EmitDatasetContext = {
-  load: (string) => Template,
+  load: (string) => (string) => Template,
   toDss: string,
   toDs: string,
   name: string,
   typeName: string,
 }
-
+ 
 type ReltTableHook = {
-  emitDataset: ((EmitContext) => DatasetHandler)?,
-}
-
-let relt = {
-  consumeTableMetaInfo: ([Table, ReltTableHook]) => table,
+  emitDataset: ((EmitDatasetContext) => DatasetHandler)?,
 }
 
 sugar enable all
@@ -40,29 +35,35 @@ type DeltaSourceInfo = {
   path: string
 }
 
-func deltaFileSource(info: DeltaSourceInfo)(x: [Table, ReltTableHook]) => [x[0], {
-  name = ((x[1]).name),
+func deltaFileSource(info: DeltaSourceInfo)(prev: ReltTableHook) => {
   emitDataset = (func (ctx: EmitDatasetContext) => do
-    ctx.load "file://$RELT_HOME/template/helper/deltaFileSourceDatasetHandler.scala"
-    let t = ctx.load "file://$RELT_HOME/template/deltaFileSourceDatasetHandler.scala"
+    ctx.load("deltaFileSourceHelper", "file://$RELT_HOME/templates/utils/deltaFileSourceDatasetHandler.scala").emitOnce()
+    let t = ctx.load(ctx.name + "deltaFileSource", "file://$RELT_HOME/templates/deltaFileSourceDatasetHandler.scala")
 
-    (t.replace) "_TO_DSS_" ctx.toDss
-    (t.replace) "_TO_DS_" ctx.toDs
-    (t.replace) "_NAME_" ctx.name
-    (t.replace) "_TYPE_" ctx.typeName
+    t.replace("_TO_DSS_", ctx.toDss)
+    t.replace("_TO_DS_", ctx.toDs)
+    t.replace("_NAME_", ctx.name)
+    t.replace("_PROJECT_", ctx.project)
+    t.replace("_TYPE_", ctx.typeName)
 
-    { name = ctx.name + "DeltaFileSourceDatasetHandler" }
-  end)
-}]
+    t.emit()
+
+    { name = ctx.name + "DeltaFileSourceDatasetHandler", isSource = true }
+  end),
+}
+
 
 sugar enable all
 
 # -- main.relt
 
-let myDeltaFile = deltaFileSource { path = "s3://path/to/delta/file" }
+let myDeltaFile = deltaFileSource({ path = "s3://path/to/delta/file" })
 
-table x = myDeltaFile {
+@myDeltaFile
+table x = {
   id: int,
 }
 
-# table y = x union x
+table y = x with {
+  num = 2,
+}

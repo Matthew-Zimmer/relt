@@ -1,20 +1,12 @@
-sugar TableIntro 0
-	on table $A~id = $B~@
-	then table $A = ($$ (relt.consumeTableMetaInfo $B~@))
-
 sugar disable all
 
-type DatasetHandler = { name: string }
+type DatasetHandler = { name: string, isSource: string }
 
-type Template = { replace: string => string => string }
+type Template = { replace: string => string => string, emitOnce: unit => unit, emit: unit => unit }
 
-type EmitDatasetContext = { load: string => Template, toDss: string, toDs: string, name: string, typeName: string }
+type EmitDatasetContext = { load: string => string => Template, toDss: string, toDs: string, name: string, typeName: string }
 
-type ReltTableHook = { emitDataset: EmitContext => DatasetHandler? }
-
-let relt = {
-    consumeTableMetaInfo: [Table, ReltTableHook] => table,
-} # { consumeTableMetaInfo: [Table, ReltTableHook] => table }
+type ReltTableHook = { emitDataset: EmitDatasetContext => DatasetHandler? }
 
 sugar enable all
 
@@ -22,27 +14,37 @@ sugar disable all
 
 type DeltaSourceInfo = { path: string }
 
-func deltaFileSource(info: DeltaSourceInfo),(x: [Table, ReltTableHook]) => [x[0], {
-    name =       x[  1].  name,
+func deltaFileSource(info: DeltaSourceInfo),(prev: ReltTableHook) => {
     emitDataset = func(    ctx: EmitDatasetContext) =>   do
-    (        ctx.    load     "file://$RELT_HOME/template/helper/deltaFileSourceDatasetHandler.scala")
-    let         t =     (        ctx.    load     "file://$RELT_HOME/template/deltaFileSourceDatasetHandler.scala") # Template
+    (        (    (        ctx.    load     "deltaFileSourceHelper")     "file://$RELT_HOME/templates/utils/deltaFileSourceDatasetHandler.scala").    emitOnce     do
+
+    end)
+    let         t =     (    (        ctx.    load             ctx.    name +     "deltaFileSource")     "file://$RELT_HOME/templates/deltaFileSourceDatasetHandler.scala") # Template
     (    (        t.    replace     "_TO_DSS_")         ctx.    toDss)
     (    (        t.    replace     "_TO_DS_")         ctx.    toDs)
     (    (        t.    replace     "_NAME_")         ctx.    name)
+    (    (        t.    replace     "_PROJECT_")         ctx.    project)
     (    (        t.    replace     "_TYPE_")         ctx.    typeName)
+    (        t.    emit     do
+
+    end)
     {
             name =                   ctx.      name +       "DeltaFileSourceDatasetHandler",
+            isSource =       true,
     }
-  end # EmitDatasetContext => { name: int },
-}] # DeltaSourceInfo => [Table, ReltTableHook] => [Table, { name: never, emitDataset: EmitDatasetContext => { name: int } }]
+  end # EmitDatasetContext => { name: int, isSource: bool },
+} # DeltaSourceInfo => ReltTableHook => { emitDataset: EmitDatasetContext => { name: int, isSource: bool } }
 
 sugar enable all
 
 let myDeltaFile = (deltaFileSource {
     path =   "s3://path/to/delta/file",
-}) # [Table, ReltTableHook] => [Table, { name: never, emitDataset: EmitDatasetContext => { name: int } }]
+}) # ReltTableHook => { emitDataset: EmitDatasetContext => { name: int, isSource: bool } }
 
 table x = {
     id: int,
+}
+
+table y = x with {
+    num =   2,
 }
