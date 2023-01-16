@@ -90,3 +90,45 @@ class DependencyGraph[T](
 
   def get(id: Int): T = this.resolve(id).data
 }
+
+object Delta {
+  type State = Byte
+  val created: State = 0
+  val updated: State = 1
+  val netural: State = 2
+  val deleted: State = 3
+}
+
+trait Plan {
+  val id: Int
+}
+case class ComputePlan (id: Int) extends Plan
+case class RefreshPlan (id: Int) extends Plan
+case class FetchPlan (id: Int) extends Plan
+case class DeltaPlan (id: Int, from: Int, to: Int) extends Plan
+case class WherePlan (id: Int, plan: Plan, on: Column) extends Plan
+case class WithPlan (id: Int, left: Plan, right: Plan) extends Plan
+
+trait PlanParser {
+  def maybeParse(args: Array[String], idx: Int, ctx: Map[String, Int]): Option[(Plan, Int)]
+}
+
+object RefreshPlanParser extends PlanParser {
+  def maybeParse(args: Array[String], idx: Int, ctx: Map[String, Int]): Option[(Plan, Int)] = {
+    None
+  }
+}
+
+object DeltaPlanParser extends PlanParser {
+  def maybeParse(args: Array[String], idx: Int, ctx: Map[String, Int]): Option[(Plan, Int)] = {
+    None
+  }
+}
+
+object Udfs {
+  private val innerJoinStateMap = Array[Delta.State](0,0,0,3,0,1,1,3,0,1,2,3,3,3,3,3)
+  private val leftJoinStateMap = Array[Delta.State](0,0,0,3,0,1,1,3,0,1,2,3,3,3,3,3)
+  val innerJoinStateUdf = udf((x: Delta.State, y: Delta.State) => this.innerJoinStateMap(x * 4 + y))
+  val leftJoinStateUdf = udf((x: Delta.State, y: Delta.State) => this.leftJoinStateMap(x * 4 + y))
+}
+
