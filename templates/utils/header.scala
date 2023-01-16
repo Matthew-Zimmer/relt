@@ -132,3 +132,28 @@ object Udfs {
   val leftJoinStateUdf = udf((x: Delta.State, y: Delta.State) => this.leftJoinStateMap(x * 4 + y))
 }
 
+trait DatasetHandler[DSS] {
+  def construct(spark: SparkSession, plan: Plan, dss: DSS): DSS = this.load(spark, plan, this.transform(spark, plan, this.extract(spark, plan, dss)))
+  def extract(spark: SparkSession, plan: Plan, dss: DSS): DSS = dss
+  def transform(spark: SparkSession, plan: Plan, dss: DSS): DSS = dss
+  def load(spark: SparkSession, plan: Plan, dss: DSS): DSS = dss
+
+  def constructPlan(id: Int, root: Int, relations: Map[Int, Map[Int, Column]], dg: DependencyGraph[DatasetHandler[DSS]], map: LinkedHashMap[Int, Plan]): LinkedHashMap[Int, Plan] = map
+}
+
+// Abstract Handlers
+
+trait SourceDatasetHandler[DSS] extends DatasetHandler[DSS] {
+  override def constructPlan(id: Int, root: Int, relations: Map[Int, Map[Int, Column]], dg: DependencyGraph[DatasetHandler[DSS]], map: LinkedHashMap[Int, Plan]): LinkedHashMap[Int, Plan] = {
+    if (id == root) return map
+
+    map += (id -> RefreshPlan(id))
+  }
+}
+
+trait TransformDatasetHandler[DSS] extends DatasetHandler[DSS] {
+  override def constructPlan(id: Int, root: Int, relations: Map[Int, Map[Int, Column]], dg: DependencyGraph[DatasetHandler[DSS]], map: LinkedHashMap[Int, Plan]): LinkedHashMap[Int, Plan] = {
+    map += (id -> ComputePlan(id))
+  }
+}
+

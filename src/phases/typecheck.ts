@@ -172,7 +172,7 @@ function typeCheckTableExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<TableE
   if (e.value.left.kind !== "IdentifierExpression")
     reportInternalError(``);
 
-  const [right] = typeCheck(e.value.right, ctx, scope, tctx);
+  let [right] = typeCheck(e.value.right, ctx, scope, tctx);
 
   const hooks = e.hooks.map(x => {
     const [h] = typeCheck(x, ctx, scope, tctx);
@@ -184,7 +184,7 @@ function typeCheckTableExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<TableE
   const name = e.value.left.name;
   const type: TableType = (() => {
     if (right.type.kind === "TableType")
-      return { kind: "TableType", name, columns: right.type.columns }
+      return right.type = { kind: "TableType", name, columns: right.type.columns };
     else if (right.kind === "TypedObjectExpression")
       return { kind: "TableType", name, columns: right.type.properties }
     else

@@ -255,7 +255,7 @@ version := "${reltProject.version}"
 libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-library" % "2.12.0",
   "org.apache.spark" %% "spark-core" % "3.0.1",
-  "org.apache.spark" %% "spark-sql" % "3.0.1",,
+  "org.apache.spark" %% "spark-sql" % "3.0.1",
   "org.apache.spark" %% "spark-mllib" % "3.0.1",
 )\n`),
     //${sparkProject.libraries.map(lib => ("${lib.package}" %% "${lib.name}" %% "${lib.version}"))}

@@ -4,7 +4,7 @@ import { normalize } from "../ast/relt/typed/utils";
 import { inspect } from "util";
 import { toTypedExpression } from "..";
 import { TypedTopLevelExpression } from "../ast/relt/topLevel";
-import { AnyType, TableType } from "../ast/relt/type";
+import { AnyType, TableType, Type } from "../ast/relt/type";
 import { TypedApplicationExpression, TypedAssignExpression, TypedDropExpression, TypedExpression, TypedGroupByExpression, TypedIdentifierExpression, TypedJoinExpression, TypedObjectExpression, TypedObjectExpressionProperty, TypedSelectExpression, TypedTableExpression, TypedUnionExpression, TypedWhereExpression, TypedWithExpression } from "../ast/relt/typed";
 import { visitVoid } from "../ast/relt/typed/utils";
 import { InternalError, reportInternalError, reportUserError, UserError } from "../errors";
@@ -521,7 +521,7 @@ function withDatasetHandler(info: TableInfo) {
                 rt.dot(rt.id("t"), rt.id("replace")),
                 rt.string("_TO_L_DS_")
               ),
-              rt.string(`(dss) => dss._${info.incoming[0] + 1}`)
+              rt.string(`(dss: Test.Datasets) => dss._${info.incoming[0] + 1}`)
             ),
             rt.app(
               rt.app(
@@ -1253,6 +1253,60 @@ export function tryDot(e: TypedExpression, name: string, scope: Scope, errorMsg:
 
 const any_t: AnyType = { kind: "AnyType" };
 
+export function generateScalaType(name: string, type: Type): [string[], string] {
+  switch (type.kind) {
+    case "IntegerType":
+      return [[], `Int`];
+    case "StringType":
+      return [[], `String`];
+    case "AnyType":
+      return [[], `Any`];
+    case "ArrayType": {
+      const [extra, of] = generateScalaType(name, type.of);
+      return [extra, `Array[${of}]`];
+    }
+    case "BooleanType":
+      return [[], `Boolean`];
+    case "FloatType":
+      return [[], `Double`];
+    case "TableType":
+      return [generateCaseClass(name, type.columns), name];
+    case "ObjectType":
+      return [generateCaseClass(name, type.properties), name];
+    case "NullType":
+      return [[], `Null`];
+    case "OptionalType": {
+      const [extra, of] = generateScalaType(name, type.of);
+      return [extra, `Option[${of}]`];
+    }
+    case "FunctionType": {
+      const [extra1, from] = generateScalaType(name, type.from);
+      const [extra2, to] = generateScalaType(name, type.to);
+      return [extra1.concat(extra2), `(${from}) => ${to}`];
+    }
+    case "TupleType": {
+      const data = type.types.map((t, i) => generateScalaType(`${name}${i}`, t));
+      return [data.reduce<string[]>((p, c) => [...p, ...c[0]], []), type.types.length === 0 ? `Array[Nothing]` : type.types.length === 1 ? `Tuple1[${data[0][1]}]` : `(${data.map(x => x[1]).join(', ')})`];
+    }
+    case "NeverType":
+      return [[], `Nothing`];
+    case "IdentifierType":
+      return [[], type.name];
+    case "UnitType":
+      return [[], `Unit`];
+  }
+}
+
+
+export function generateCaseClass(name: string, props: { name: string, type: Type }[]): string[] {
+  const [extra, properties] = props.reduce<[string[], string[]]>((p, c) => {
+    const x = generateScalaType(c.name, c.type);
+    return [p[0].concat(x[0]), p[1].concat(`${c.name}: ${x[1]}`)];
+  }, [[], []]);
+
+  return extra.concat(`case class ${name} (${properties.map(x => `\n\t${x},`).join('')}\n)\n\n`);
+}
+
 export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Promise<[string]> {
   let scalaSourceCode = "";
 
@@ -1278,7 +1332,7 @@ export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Pr
   };
 
   const header = loadTemplate("header", "file://$RELT_HOME/templates/utils/header.scala");
-  header.replace("_PACKAGE_")("TEST");
+  header.replace("_PACKAGE_")("Test");
   header.emit();
 
   const typedExprs: TypedExpression[] = tast.filter(x => x.kind !== "SugarDirective" && x.kind !== "TypedSugarDefinition" && x.kind !== "TypeIntroductionExpression") as TypedExpression[];
@@ -1287,7 +1341,16 @@ export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Pr
 
   const tables = Object.entries(infos).sort(([, a], [, b]) => a.id - b.id);
 
+  if (tables.length === 0)
+    reportUserError(`Need at least one table defined`);
+
+  scalaSourceCode += `package object ${"Test"} {\n\ttype Datasets = ${generateScalaType('', relt.type.tuple(tables.map(x => relt.type.id(`Dataset[${x[0]}]`))))[1]}\n}\n\n`;
+
+
   for (const [k, v] of tables) {
+
+    scalaSourceCode += generateCaseClass(k, (v.value.type as TableType).columns);
+
     const userHooks = v.value.kind === "TypedTableExpression" ? v.value.hooks : [];
     const [hookExpr] = normalize(userHooks.reduceRight<TypedExpression>((p, c) => ({ kind: "TypedApplicationExpression", left: c, right: p, type: { kind: "IdentifierType", name: "ReltTableHook" } }), deriveDefaultTableHook(k, v)), scope);
 
@@ -1303,12 +1366,12 @@ export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Pr
         },
         {
           kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "toDs", type: any_t }, op: "=", right: {
-            kind: "TypedStringExpression", value: `(dss) => dss._${v.id + 1}`, type: { kind: "StringType" },
+            kind: "TypedStringExpression", value: `(dss: Test.Datasets) => dss._${v.id + 1}`, type: { kind: "StringType" },
           }
         },
         {
           kind: "TypedAssignExpression", type: any_t, left: { kind: "TypedIdentifierExpression", name: "toDss", type: any_t }, op: "=", right: {
-            kind: "TypedStringExpression", value: `(dss, ds) => (${tables.map(x => x[1].id === v.id ? 'ds' : `dss._${x[1].id + 1}`)})`, type: { kind: "StringType" },
+            kind: "TypedStringExpression", value: `(dss: Test.Datasets, ds: Dataset[${k}]) => ${tables.length === 1 ? `Tuple1` : ``}(${tables.map(x => x[1].id === v.id ? 'ds' : `dss._${x[1].id + 1}`)})`, type: { kind: "StringType" },
           }
         },
         {
@@ -1453,7 +1516,7 @@ ${tables.filter(x => x.isSource).map(x => `\t\t"${(x.value.type as TableType).na
 
     val executionPlans = dg.topologicalSort.foldLeft(LinkedHashMap(requestedPlans.map(x => (x.id -> x)): _*))((p, c) => c.data.constructPlan(c.id, id, this.sourceTableRelations, dg, p))
 
-    var dss = (${tables.map(x => `spark.emptyDataset[${(x.value.type as TableType).name}]`).join(', ')})
+    var dss = ${tables.length === 1 ? `Tuple1` : ``}(${tables.map(x => `spark.emptyDataset[${(x.value.type as TableType).name}]`).join(', ')})
 
     for ((id, plan) <- executionPlans) {
       dss = this.dg.get(id).construct(spark, plan, dss)
