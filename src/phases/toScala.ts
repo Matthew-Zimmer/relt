@@ -127,16 +127,6 @@ export function gatherTableInfos(e: TypedExpression[]): TableInfos {
     tables[k].outgoing = [...new Set(tables[k].outgoing)];
   }
 
-  e.forEach(x => visitVoid(x, {
-    TypedTableExpression: (x: TypedTableExpression) => {
-      if (x.value.kind === "TypedAssignExpression" && x.value.right.kind !== "TypedObjectExpression") {
-        const sub = (x.value.right.type as TableType).name;
-        tables[x.type.name] = tables[sub];
-        delete tables[sub];
-      }
-    },
-  }));
-
   return tables;
 }
 
