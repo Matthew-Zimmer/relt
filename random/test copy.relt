@@ -1,0 +1,36 @@
+type t0 = int
+type t1 = float
+type t2 = string
+type t3 = boolean
+type t4 = null
+type t5 = T
+type t6 = int[]
+type t7 = int?
+type t8 = (string) => string
+type t9 = [int, int, float]
+type t10 = ((int) => int)[]?
+
+let v0 = 1
+let v1 = 1.5
+let v2 = false
+let v3 = "sasda"
+let v4 = $"asdsa"
+let v5 = []
+let v6 = [1,0,0]
+let v7 = {}
+let v8 = do end
+let v9 = do {}; end
+let v10 = 1 + 1
+let v11 = 1 - 1
+let v12 = 2 * 3
+let v13 = null # ?? 0 # This is missing a way to introduce a optional type
+let v14 = null # !? 5 # This is missing a way to introduce a optional type
+let v15 = true || false
+let v16 = true && true
+
+func f0 => 0
+func f1(x: int) => x
+func f2(x: [int, float]) => x
+func f3(x: (unit) => int) => x
+func f4(x: int)(y: float) => [x, y]
+

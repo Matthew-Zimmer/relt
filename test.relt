@@ -1,0 +1,69 @@
+# -- relt.relt
+
+sugar disable all
+
+type DatasetHandler = {
+  name: string,
+  isSource: string,
+}
+
+type Template = {
+  replace: (string) => (string) => string,
+  emitOnce: () => unit,
+  emit: () => unit,
+}
+
+type EmitDatasetContext = {
+  load: (string) => (string) => Template,
+  toDss: string,
+  toDs: string,
+  name: string,
+  typeName: string,
+}
+ 
+type ReltTableHook = {
+  emitDataset: ((EmitDatasetContext) => DatasetHandler)?,
+}
+
+sugar enable all
+
+# -- std.relt
+
+sugar disable all
+
+type DeltaSourceInfo = {
+  path: string
+}
+
+func deltaFileSource(info: DeltaSourceInfo)(prev: ReltTableHook) => {
+  emitDataset = (func (ctx: EmitDatasetContext) => do
+    ctx.load("deltaFileSourceHelper", "file://$RELT_HOME/templates/utils/deltaFileSourceDatasetHandler.scala").emitOnce()
+    let t = ctx.load(ctx.name + "deltaFileSource", "file://$RELT_HOME/templates/deltaFileSourceDatasetHandler.scala")
+
+    t.replace("_TO_DSS_", ctx.toDss)
+    t.replace("_TO_DS_", ctx.toDs)
+    t.replace("_NAME_", ctx.name)
+    t.replace("_PROJECT_", ctx.project)
+    t.replace("_TYPE_", ctx.typeName)
+
+    t.emit()
+
+    { name = ctx.name + "DeltaFileSourceDatasetHandler", isSource = true }
+  end),
+}
+
+
+sugar enable all
+
+# -- main.relt
+
+let myDeltaFile = deltaFileSource({ path = "s3://path/to/delta/file" })
+
+@myDeltaFile
+table x = {
+  id: int,
+}
+
+table y = x with {
+  num = 2,
+}

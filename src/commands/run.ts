@@ -1,73 +1,60 @@
-import { readSourceCode, parseSourceCode, typeCheck, writeScalaProject } from "../api/compile";
-import { evaluateAllExpressions } from "../passes/evaluate";
-import { deriveSparkProject } from "../passes/typedReltToScala";
-import { readDefaultedReltProject } from "../project";
-import { spawn } from 'child_process';
-import { isSparkSourceDataSet, SparkDatasetHandler } from "../asts/scala";
+import type { Argv } from "yargs";
+import { CompilerApi } from "../api/compiler";
+import { readDefaultedReltProject } from "../api/project";
+import { SBTApi } from "../api/sbt";
+import { genLoc } from "../compiler/ast/relt/location";
 
-export interface RunArgs {
-  command: string;
-  tables: string[];
-  show?: string[];
-}
-
-function convertDatasetHandlers(ds: SparkDatasetHandler, shouldShow: boolean): SparkDatasetHandler {
-  if (shouldShow)
-    ds = { ...ds, show: true };
-
-  if (isSparkSourceDataSet(ds))
-    ds = {
-      kind: "SparkFileSourceDatasetHandler",
-      format: "json",
-      output: ds.output,
-      path: `data/${ds.output.name}.jsonl`,
-      show: ds.show,
-    };
-
-  return ds;
-}
-
-export async function run(args: RunArgs) {
-  let { command, tables, show } = args;
-
-  show ??= [];
-
-  const reltProject = await readDefaultedReltProject();
-  const fileContent = await readSourceCode(reltProject);
-  const topLevelExpressions = parseSourceCode(fileContent);
-  const [typedExpressions, ectx, typedTypeExpressions, tctx, libs] = typeCheck(topLevelExpressions);
-  const [values, scope] = evaluateAllExpressions(typedExpressions);
-  let sparkProject = deriveSparkProject(reltProject, typedTypeExpressions, ectx, scope, libs);
-
-  sparkProject = {
-    ...sparkProject,
-    datasetHandlers: sparkProject.datasetHandlers.map(ds =>
-      convertDatasetHandlers(ds, show!.includes(ds.output.name))
-    ),
-  };
-
-  await writeScalaProject(reltProject, sparkProject);
-
-  console.log('Compiled Relt project, running now!');
-
-  const job = spawn("sbt", [`run ${command} ${tables.join(' ')}`], {
-    cwd: `${reltProject.outDir}/${reltProject.name}`,
-  });
-
-  job.stdout.on('data', (msg: Buffer) => {
-    process.stdout.write(msg);
-  });
-
-  job.stderr.on('data', (msg) => {
-    process.stderr.write(msg);
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    const cleanup = (f: () => any) => {
-      job.removeAllListeners();
-      return f();
-    }
-    job.on('exit', () => cleanup(resolve));
-    job.on('error', (e) => cleanup(() => reject(e)));
-  });
+export function run<T>(cli: Argv<T>) {
+  return (
+    cli
+      .command('run [command] [tables..]', 'Pull in data for local testing',
+        yargs => (
+          yargs
+            .positional('command', {
+              type: 'string',
+              choices: ["refresh"],
+              describe: 'The mode of the spark job to run'
+            })
+            .demandOption('command')
+            .positional('tables', {
+              array: true,
+              type: "string",
+              describe: "The name of the tables which have be updated",
+              default: [],
+            })
+            .option("show", {
+              alias: "s",
+              array: true,
+              string: true,
+              describe: "Force these tables to be shown",
+            })
+        ),
+        async args => {
+          const project = await readDefaultedReltProject();
+          const reltc = new CompilerApi(project);
+          const step = await reltc.compile('ast');
+          step.transform({
+            TableExpression: e => {
+              const name = e.value.kind === "AssignExpression" && e.value.left.kind === "IdentifierExpression" ? e.value.left.name : undefined;
+              if (name === undefined || !args.show?.includes(name)) return e;
+              return {
+                ...e, hooks: [
+                  {
+                    kind: "IdentifierExpression",
+                    loc: genLoc,
+                    name: "show",
+                  },
+                  ...e.hooks
+                ]
+              };
+            }
+          })
+          const sbt = new SBTApi();
+          await sbt.run({
+            path: `${project.outDir}/${project.name}`,
+            args: args.tables.flatMap(x => [args.command, x]),
+          });
+        },
+      )
+  );
 }

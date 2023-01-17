@@ -1,31 +1,20 @@
-import { createInterface, Interface } from 'readline';
-import { isReltProject, createReltProject } from '../project';
+import type { Argv } from "yargs";
+import { createReltProject } from "../api/project";
 
-export interface InitCommandArgs {
-  name?: string;
-  package?: string;
-  srcDir?: string;
-  outDir?: string;
-  mainFile?: string;
-}
-
-async function question(rl: Interface, query: string): Promise<string> {
-  return new Promise(resolve => {
-    rl.question(query, x => resolve(x));
-  });
-}
-
-export async function initProject(args: InitCommandArgs) {
-  if (isReltProject())
-    throw `Cannot create a project (already in a relt project)`;
-  const rl = createInterface(process.stdin, process.stdout);
-
-  if (args.name === undefined || args.package === undefined)
-    console.log(`Create a new relt project!`);
-
-  const name = args.name ?? await question(rl, 'Project Name: ');
-
-  rl.close();
-
-  return createReltProject({ ...args, name });
+export function init<T>(cli: Argv<T>) {
+  return (
+    cli
+      .command('init', 'Create a new project',
+        {
+          name: { string: true, alias: 'n', description: 'The name of the project', required: true },
+          package: { string: true, alias: 'p', description: 'The name of the generated scala package' },
+          srcDir: { string: true, description: 'The directory which contains the main relt file' },
+          outDir: { string: true, description: 'The directory which contains the generated scala project(s)' },
+          mainFile: { string: true, description: 'The name of the main relt file which the compiler starts with' },
+        },
+        async args => {
+          await createReltProject(args)
+        }
+      )
+  );
 }
