@@ -1,24 +1,20 @@
-import { existsSync } from "fs";
-import { mkdir, readFile, rm, writeFile } from "fs/promises";
-import z from 'zod';
-import { formatTypedMany, formatUntypedMany } from "./compiler/ast/relt/format";
-import { SugarDefinition, SugarDirective, TypedTopLevelExpression } from "./compiler/ast/relt/topLevel";
-import { FunctionType, Type } from "./compiler/ast/relt/type";
-import { TypedAssignExpression, TypedExpression, TypedIdentifierExpression } from "./compiler/ast/relt/typed";
-import { normalize, ofKind } from "./compiler/ast/relt/typed/utils";
-import { SparkProject } from "./compiler/ast/scala";
-import { reportInternalError, UserError } from "./compiler/errors";
-import { checkSugars } from "./compiler/phases/checkSugar";
-import { desugar } from "./compiler/phases/desugar";
-import { parse } from "./compiler/phases/parse";
-import { preTypeCheckDesugar } from "./compiler/phases/preTypeCheckDesugar";
-import { toScala } from "./compiler/phases/toScala";
-import { Context, Scope, shallowTypeCheck, typeCheck } from "./compiler/phases/typecheck";
+import { readFileSync } from "fs";
+import { writeFile } from "fs/promises";
+import { Expression } from "../compiler/ast/relt/source";
+import { visitMap as visitMapSource, Visitor as SourceVisitor, visitVoid as visitVoidSource } from "../compiler/ast/relt/source/utils";
+import { SugarDefinition, SugarDirective, TopLevelExpression, TypedTopLevelExpression } from "../compiler/ast/relt/topLevel";
+import { TypedAssignExpression, TypedExpression, TypedIdentifierExpression } from "../compiler/ast/relt/typed";
+import { visitMap as visitMapTyped, Visitor as TypedVisitor, visitVoid as visitVoidTyped } from "../compiler/ast/relt/typed/utils";
+import { SparkProject } from "../compiler/ast/scala";
+import { reportInternalError } from "../compiler/errors";
+import { checkSugars } from "../compiler/phases/checkSugar";
+import { desugar } from "../compiler/phases/desugar";
+import { parse } from "../compiler/phases/parse";
+import { preTypeCheckDesugar } from "../compiler/phases/preTypeCheckDesugar";
+import { toScala } from "../compiler/phases/toScala";
+import { Context, Scope, typeCheck } from "../compiler/phases/typecheck";
+import { writeSparkProject } from "../compiler/phases/writeSparkProject";
 import { ReltProject } from "./project";
-
-function internalFunction(name: string, value: (e: TypedExpression) => TypedExpression, type: FunctionType): TypedAssignExpression {
-  return { kind: "TypedAssignExpression", left: { kind: "TypedIdentifierExpression", name, type: { kind: "AnyType" } }, op: "=", right: { kind: "TypedInternalExpression", type, value }, type: { kind: "AnyType" } };
-}
 
 export function toTypedExpression(x: any): TypedExpression {
   switch (typeof x) {
@@ -46,225 +42,243 @@ export function toTypedExpression(x: any): TypedExpression {
   }
 }
 
-export function toJSUnsafe(e: TypedExpression): unknown {
-  switch (e.kind) {
-    case "TypedIntegerExpression":
-    case "TypedStringExpression":
-    case "TypedBooleanExpression":
-      return e.value;
-    case "TypedFloatExpression":
-      return Number(e.value);
-    case "TypedObjectExpression": {
-      const entries: [string, unknown][] = [];
+export interface AstStep {
+  data: TopLevelExpression[];
+  insert: (e: TopLevelExpression, idx: number) => void;
+  next: () => DesugaredAstStep;
+  finish: () => Promise<void>;
+  visit: (visitor: SourceVisitor<Expression, void>) => void;
+  transform: (visitor: SourceVisitor<Expression, Expression>) => TopLevelExpression[];
+}
 
-      for (const prop of e.properties) {
-        switch (prop.kind) {
-          case "TypedAssignExpression":
-            if (prop.left.kind === "TypedIdentifierExpression") {
-              entries.push([prop.left.name, toJSUnsafe(prop.right)]);
-              break;
-            }
+export interface DesugaredAstStep {
+  data: TopLevelExpression[];
+  insert: (e: TopLevelExpression, idx: number) => void;
+  next: () => TypedAstStep;
+  finish: () => Promise<void>;
+  visit: (visitor: SourceVisitor<Expression, void>) => void;
+  transform: (visitor: SourceVisitor<Expression, Expression>) => TopLevelExpression[];
+}
+
+export interface TypedAstStep {
+  data: TypedTopLevelExpression[];
+  context: Context;
+  scope: Scope;
+  typeContext: Context;
+  insert: (e: TypedTopLevelExpression, idx: number) => void;
+  next: () => DesugaredTypedAstStep;
+  finish: () => Promise<void>;
+  visit: (visitor: TypedVisitor<TypedExpression, void>) => void;
+  transform: (visitor: TypedVisitor<TypedExpression, TypedExpression>) => TypedTopLevelExpression[];
+}
+
+export interface DesugaredTypedAstStep {
+  data: TypedTopLevelExpression[];
+  insert: (e: TypedTopLevelExpression, idx: number) => void;
+  next: (scope?: Scope) => ScalaStep;
+  finish: () => Promise<void>;
+  visit: (visitor: TypedVisitor<TypedExpression, void>) => void;
+  transform: (visitor: TypedVisitor<TypedExpression, TypedExpression>) => TypedTopLevelExpression[];
+}
+
+export interface ScalaStep {
+  data: string;
+  write: () => Promise<void>;
+  finish: () => Promise<void>;
+}
+
+export interface CompilerStepMap {
+  "ast": AstStep;
+  "desugared-ast": DesugaredAstStep;
+  "typed-ast": TypedAstStep;
+  "desugared-typed-ast": DesugaredTypedAstStep;
+  "scala": ScalaStep;
+}
+
+export type CompilerStep = keyof CompilerStepMap;
+
+export class CompilerApi {
+
+  constructor(private project: ReltProject) { }
+
+
+  private makeSourceVisit(ast: TopLevelExpression[]) {
+    return (visitor: SourceVisitor<Expression, void>) => {
+      ast.forEach(x => {
+        switch (x.kind) {
+          case "SugarDefinition":
+          case "TypeIntroductionExpression":
+          case "SugarDirective":
+            return;
           default:
-            throw new Error(`Cannot add property of kind ${prop.kind} to JS object`);
+            visitVoidSource(x, visitor);
         }
-      }
-
-      return Object.fromEntries(entries);
-    }
-    case "TypedArrayExpression":
-      return e.values.map(toJSUnsafe);
-    case "TypedFunctionExpression": {
-      return (...args: unknown[]) => {
-        if (args.length != e.args.length)
-          reportInternalError(`Bad JS Func call got ${args.length} args need ${e.args.length} args`);
-        if (!e.args.every(ofKind('TypedDeclareExpression')))
-          reportInternalError(`Bad JS Func`);
-        if (!e.args.every(x => ofKind('TypedIdentifierExpression')(x.value)))
-          reportInternalError(`Bad JS Func`);
-        return toJSUnsafe(normalize(e.value, Object.fromEntries(args.map((x, i) => [(e.args[i] as any).value.name, toTypedExpression(x)])))[0]);
-      }
-    }
-    default:
-      throw new Error(`Cannot convert ${e.kind} to JS`);
-  }
-}
-
-export function toJS<T>(schema: z.Schema<T>, e: TypedExpression): T {
-  return schema.parse(toJSUnsafe(e));
-}
-
-function deleteLocs(t: Type): Type {
-  delete (t as any).loc;
-  switch (t.kind) {
-    case "FunctionType":
-      deleteLocs(t.from);
-      deleteLocs(t.to);
-      break;
-    case "ObjectType":
-      t.properties.forEach(x => deleteLocs(x.type));
-      break;
-    case "OptionalType":
-      deleteLocs(t.of);
-      break;
-    case "TupleType":
-      t.types.forEach(deleteLocs);
-      break;
-    case "ArrayType":
-      deleteLocs(t.of);
-      break;
-  }
-  return t;
-}
-
-async function main() {
-  const fileContent = (await readFile('test.relt')).toString();
-
-  const fileContentWithoutComments = fileContent.split('\n').map(x => {
-    const idx = x.indexOf("#");
-    return idx === -1 ? x : x.slice(0, idx);
-  }).join('\n');
-
-  let ast = parse(fileContentWithoutComments);
-
-  await writeFile('test-0.relt', formatUntypedMany(ast));
-
-  const sugars = ast.filter(x => x.kind === "SugarDefinition" || x.kind === "SugarDirective") as (SugarDefinition | SugarDirective)[];
-  checkSugars(sugars);
-
-  ast = preTypeCheckDesugar(ast);
-
-  await writeFile('test-1.relt', formatUntypedMany(ast));
-
-  let ctx: Context = {
-    '+': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
-    '-': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
-    '*': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
-    '/': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
-    '%': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
-    '==': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '!=': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '<=': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '>=': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '<': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '>': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '||': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-    '&&': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
-  };
-
-  let scope: Scope = {
-    relt: {
-      kind: "TypedObjectExpression",
-      properties: [],
-      type: { kind: "ObjectType", properties: [] },
-    }
-  };
-  let tctx: Context = {};
-
-  let tast = ast.map<TypedTopLevelExpression>(x => {
-    switch (x.kind) {
-      case "SugarDirective":
-        return x;
-      case "TypeIntroductionExpression":
-        tctx = { ...tctx, [x.name]: x.type };
-        return x;
-      case "SugarDefinition": {
-        const pattern = shallowTypeCheck(x.pattern);
-        const replacement = shallowTypeCheck(x.replacement);
-        return { kind: "TypedSugarDefinition", name: x.name, phase: x.phase, pattern, replacement };
-      }
-      default: {
-        const y = typeCheck(x, ctx, scope, tctx);
-        ctx = y[1];
-        scope = y[2];
-        return y[0];
-      }
-    }
-  });
-
-  await writeFile('test-2.relt', formatTypedMany(tast));
-
-  tast = desugar(tast);
-
-  // await writeFile('tast', toBuilderStringMany(tast.filter(x => x.kind !== "SugarDirective" && x.kind !== "TypeIntroductionExpression" && x.kind !== "TypedSugarDefinition") as TypedExpression[]));
-
-  // throw "STOP";
-
-  await writeFile('test-3.relt', formatTypedMany(tast));
-
-  const scala = await toScala(tast, scope);
-
-  const reltProject: ReltProject = {
-    mainFile: "test.relt",
-    name: "Test",
-    outDir: "out",
-    package: "",
-    srcDir: "src",
-    version: "0.0.0",
-  };
-
-  const sparkProject: SparkProject = {
-    kind: "SparkProject",
-    imports: [],
-    name: "Test",
-    package: "",
-    sourceCode: scala[0],
-    types: [],
-  };
-
-  await writeScalaProject(reltProject, sparkProject);
-}
-
-export async function ensureDirectoryExists(path: string) {
-  const parts = path.split('/');
-  let p = '.';
-  for (const part of parts) {
-    p += `/${part}`;
-    if (!existsSync(p)) {
-      return mkdir(path, { recursive: true });
+      });
     }
   }
+
+  private makeSourceTransform(ast: TopLevelExpression[]) {
+    return (visitor: SourceVisitor<Expression, Expression>) => {
+      return ast = ast.map<TopLevelExpression>(x => {
+        switch (x.kind) {
+          case "SugarDefinition":
+          case "TypeIntroductionExpression":
+          case "SugarDirective":
+            return x;
+          default:
+            return visitMapSource(x, visitor);
+        }
+      });
+    };
+  }
+
+  private makeTypedVisit(tast: TypedTopLevelExpression[]) {
+    return (visitor: TypedVisitor<TypedExpression, void>) => {
+      tast.forEach(x => {
+        switch (x.kind) {
+          case "TypedSugarDefinition":
+          case "TypeIntroductionExpression":
+          case "SugarDirective":
+            return;
+          default:
+            visitVoidTyped(x, visitor);
+        }
+      });
+    }
+  }
+
+  private makeTypedTransform(tast: TypedTopLevelExpression[]) {
+    return (visitor: TypedVisitor<TypedExpression, TypedExpression>) => {
+      return tast = tast.map<TypedTopLevelExpression>(x => {
+        switch (x.kind) {
+          case "TypedSugarDefinition":
+          case "TypeIntroductionExpression":
+          case "SugarDirective":
+            return x;
+          default:
+            return visitMapTyped(x, visitor);
+        }
+      });
+    };
+  }
+
+  private toAst(fileName: string): AstStep {
+    const fileContent = readFileSync(fileName).toString();
+    const fileContentWithoutComments = fileContent.split('\n').map(x => {
+      const idx = x.indexOf("#");
+      return idx === -1 ? x : x.slice(0, idx);
+    }).join('\n');
+    const ast = parse(fileContentWithoutComments);
+    const sugars = ast.filter(x => x.kind === "SugarDefinition" || x.kind === "SugarDirective") as (SugarDefinition | SugarDirective)[];
+    checkSugars(sugars);
+    return {
+      data: ast,
+      insert: (e: TopLevelExpression, idx: number) => { ast.splice(idx, 0, e); },
+      next: () => this.toDesugaredAst(ast),
+      finish() { return this.next().finish() },
+      visit: this.makeSourceVisit(ast),
+      transform: this.makeSourceTransform(ast),
+    };
+  }
+
+  private toDesugaredAst(ast: TopLevelExpression[]): DesugaredAstStep {
+    const dast = preTypeCheckDesugar(ast);
+    return {
+      data: dast,
+      insert: (e: TopLevelExpression, idx: number) => { ast.splice(idx, 0, e); },
+      next: () => this.toTypedAst(ast),
+      finish() { return this.next().finish() },
+      visit: this.makeSourceVisit(ast),
+      transform: this.makeSourceTransform(ast),
+    };
+  }
+
+  private toTypedAst(ast: TopLevelExpression[]): TypedAstStep {
+    let ctx: Context = {
+      '+': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
+      '-': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
+      '*': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
+      '/': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
+      '%': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "IntegerType" } } },
+      '==': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '!=': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '<=': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '>=': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '<': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '>': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '||': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+      '&&': { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "FunctionType", from: { kind: "IntegerType" }, to: { kind: "BooleanType" } } },
+    };
+
+    let scope: Scope = {
+      relt: {
+        kind: "TypedObjectExpression",
+        properties: [],
+        type: { kind: "ObjectType", properties: [] },
+      }
+    };
+    let tCtx: Context = {};
+    const [tast, ctx1, scope1] = typeCheck(ast, ctx, scope, tCtx);
+    return {
+      data: tast,
+      context: ctx1,
+      scope: scope1,
+      typeContext: tCtx,
+      insert: (e: TypedTopLevelExpression, idx: number) => { tast.splice(idx, 0, e); },
+      next: () => this.toDesugaredTypedAst(tast, scope1),
+      finish() { return this.next().finish() },
+      visit: this.makeTypedVisit(tast),
+      transform: this.makeTypedTransform(tast),
+    };
+  }
+
+  private toDesugaredTypedAst(tast: TypedTopLevelExpression[], scope_: Scope): DesugaredTypedAstStep {
+    const dtast = desugar(tast);
+    return {
+      data: dtast,
+      insert: (e: TypedTopLevelExpression, idx: number) => { dtast.splice(idx, 0, e); },
+      next: (scope?: Scope) => this.toScala(dtast, { ...scope_, ...scope }),
+      finish() { return this.next().finish() },
+      visit: this.makeTypedVisit(dtast),
+      transform: this.makeTypedTransform(dtast),
+    };
+  }
+
+  private toScala(tast: TypedTopLevelExpression[], scope: Scope): ScalaStep {
+    const scalaSourceCode = toScala(tast, scope);
+
+    const sparkProject: SparkProject = {
+      kind: "SparkProject",
+      imports: [],
+      name: "Test",
+      package: "",
+      sourceCode: scalaSourceCode,
+      types: [],
+    };
+
+    return {
+      data: scalaSourceCode,
+      write: () => writeSparkProject(this.project, sparkProject),
+      finish() { return this.write(); },
+    };
+  }
+
+  async compile<Step extends CompilerStep | undefined = undefined>(to?: Step): Promise<Step extends CompilerStep ? CompilerStepMap[Step] : undefined> {
+    const fileName = this.project.mainFile;
+
+    const step0 = this.toAst(fileName);
+    if (to === "ast") return step0 as Step extends CompilerStep ? CompilerStepMap[Step] : undefined;
+    const step1 = step0.next();
+    if (to === "desugared-ast") return step1 as Step extends CompilerStep ? CompilerStepMap[Step] : undefined;
+    const step2 = step1.next();
+    if (to === "typed-ast") return step2 as Step extends CompilerStep ? CompilerStepMap[Step] : undefined;
+    const step3 = step2.next();
+    if (to === "desugared-typed-ast") return step3 as Step extends CompilerStep ? CompilerStepMap[Step] : undefined;
+    const step4 = step3.next();
+    if (to === "scala") return step4 as Step extends CompilerStep ? CompilerStepMap[Step] : undefined;
+
+    await step4.write();
+
+    return undefined as Step extends CompilerStep ? CompilerStepMap[Step] : undefined;
+  }
 }
-
-export async function emptyDirectory(path: string) {
-  await rm(path, { recursive: true });
-  await mkdir(path, { recursive: true });
-}
-
-export async function writeScalaProject(reltProject: ReltProject, sparkProject: SparkProject) {
-  const projectOutDir = `${reltProject.outDir}/${reltProject.name}`;
-  const packageDir = reltProject.package.split('.').join('/');
-
-  await Promise.all([
-    ensureDirectoryExists(`${projectOutDir}/project`),
-    ensureDirectoryExists(`${projectOutDir}/src/main/scala/${packageDir}`),
-  ]);
-
-  await Promise.all([
-    emptyDirectory(`${projectOutDir}/project`),
-    emptyDirectory(`${projectOutDir}/src/main/scala/${packageDir}`),
-  ]);
-
-  await Promise.all([
-    writeFile(`${projectOutDir}/project/build.properties`, `sbt.version = 1.8.0\n`),
-    writeFile(`${projectOutDir}/build.sbt`, `
-name := "${sparkProject.name}"
-
-version := "${reltProject.version}"
-
-libraryDependencies ++= Seq(
-  "org.scala-lang" % "scala-library" % "2.12.0",
-  "org.apache.spark" %% "spark-core" % "3.0.1",
-  "org.apache.spark" %% "spark-sql" % "3.0.1",
-  "org.apache.spark" %% "spark-mllib" % "3.0.1",
-)\n`),
-    //${sparkProject.libraries.map(lib => ("${lib.package}" %% "${lib.name}" %% "${lib.version}"))}
-    writeFile(`${projectOutDir}/src/main/scala/${packageDir}/${reltProject.name}.scala`, sparkProject.sourceCode),
-  ]);
-}
-
-main().catch(e => {
-  if (e instanceof UserError)
-    console.error("Error: " + e.message)
-  else
-    console.error(e)
-});

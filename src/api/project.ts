@@ -33,7 +33,7 @@ export async function createReltProject(p: ReltProjectConfig) {
   return writeFile(reltConfigFileName, JSON.stringify(p, undefined, 2));
 }
 
-export async function readReltProject(): Promise<ReltProject> {
+export async function readReltProject(): Promise<ReltProjectConfig> {
   if (!isReltProject())
     throw `Error: Not in a relt project (did you forget to initialize the project?)`;
   return JSON.parse((await readFile(reltConfigFileName)).toString());

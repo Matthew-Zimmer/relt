@@ -7,6 +7,7 @@ import { reportInternalError, reportUserError } from "../errors";
 import { Location } from '../ast/relt/location';
 import { gather, normalize, ofKind } from "../ast/relt/typed/utils";
 import { format } from "../ast/relt/typed/format";
+import { TopLevelExpression, TypedTopLevelExpression } from "../ast/relt/topLevel";
 
 export type Context = Record<string, Type>;
 export type Scope = Record<string, TypedExpression>;
@@ -14,7 +15,34 @@ export type Scope = Record<string, TypedExpression>;
 type TypeCheckArgs<E extends Expression = Expression> = [E, Context, Scope, Context];
 type TypeCheckReturn<E extends TypedExpression = TypedExpression> = [E, Context, Scope];
 
-export function typeCheck(...[e, ctx, scope, tctx]: TypeCheckArgs): TypeCheckReturn {
+
+export function typeCheck(ast: TopLevelExpression[], ctx: Context, scope: Scope, tctx: Context): [TypedTopLevelExpression[], Context, Scope, Context] {
+  const tast = ast.map<TypedTopLevelExpression>(x => {
+    switch (x.kind) {
+      case "SugarDirective":
+        return x;
+      case "TypeIntroductionExpression":
+        tctx = { ...tctx, [x.name]: x.type };
+        return x;
+      case "SugarDefinition": {
+        const pattern = shallowTypeCheckExpression(x.pattern);
+        const replacement = shallowTypeCheckExpression(x.replacement);
+        return { kind: "TypedSugarDefinition", name: x.name, phase: x.phase, pattern, replacement };
+      }
+      default: {
+        const y = typeCheckExpression(x, ctx, scope, tctx);
+        ctx = y[1];
+        scope = y[2];
+        return y[0];
+      }
+    }
+  });
+  return [tast, ctx, scope, tctx];
+}
+
+
+
+export function typeCheckExpression(...[e, ctx, scope, tctx]: TypeCheckArgs): TypeCheckReturn {
   switch (e.kind) {
     case "LetExpression": return typeCheckLetExpression(e, ctx, scope, tctx);
     case "TableExpression": return typeCheckTableExpression(e, ctx, scope, tctx);
@@ -129,7 +157,7 @@ const compilerNames = ['relt'];
 function typeCheckLetExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<LetExpression>): TypeCheckReturn<TypedLetExpression> {
   switch (e.value.kind) {
     case "AssignExpression": {
-      const [right] = typeCheck(e.value.right, ctx, scope, tctx);
+      const [right] = typeCheckExpression(e.value.right, ctx, scope, tctx);
       switch (e.value.left.kind) {
         case "IdentifierExpression": {
           return [
@@ -172,10 +200,10 @@ function typeCheckTableExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<TableE
   if (e.value.left.kind !== "IdentifierExpression")
     reportInternalError(``);
 
-  let [right] = typeCheck(e.value.right, ctx, scope, tctx);
+  let [right] = typeCheckExpression(e.value.right, ctx, scope, tctx);
 
   const hooks = e.hooks.map(x => {
-    const [h] = typeCheck(x, ctx, scope, tctx);
+    const [h] = typeCheckExpression(x, ctx, scope, tctx);
     if (isAssignable(h.type, tableHook, tctx))
       reportUserError(`Invalid table hook got ${typeName(h.type)} expected: ${typeName(tableHook)}\nAt ${locPath(x.loc)}`)
     return h;
@@ -239,9 +267,9 @@ export function getIntros(e: TypedExpression, loc: Location): Introduction[] {
 }
 
 function typeCheckFunctionExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<FunctionExpression>): TypeCheckReturn<TypedFunctionExpression> {
-  const args = e.args.map(x => typeCheck(x, ctx, scope, tctx)[0]);
+  const args = e.args.map(x => typeCheckExpression(x, ctx, scope, tctx)[0]);
   const intros = args.flatMap((x, i) => getIntros(x, e.args[i].loc));
-  const [value] = typeCheck(e.value, { ...ctx, ...Object.fromEntries(intros.map(x => [x.name, x.type])) }, scope, tctx);
+  const [value] = typeCheckExpression(e.value, { ...ctx, ...Object.fromEntries(intros.map(x => [x.name, x.type])) }, scope, tctx);
 
   const t: TypedFunctionExpression = {
     kind: "TypedFunctionExpression",
@@ -255,7 +283,7 @@ function typeCheckFunctionExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Fun
 }
 
 function typeCheckEvalExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<EvalExpression>): TypeCheckReturn<TypedExpression> {
-  const [node] = typeCheck(e.node, ctx, scope, tctx);
+  const [node] = typeCheckExpression(e.node, ctx, scope, tctx);
   // TODO think should we be using that scope change from normalize?
   return [normalize(node, scope)[0], ctx, scope];
 }
@@ -267,8 +295,8 @@ function typeCheckDeclareExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Decl
 }
 
 function typeCheckAssignExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<AssignExpression>): TypeCheckReturn<TypedAssignExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
 
   assertValidAssign(left, e.left.loc);
 
@@ -279,8 +307,8 @@ function typeCheckAssignExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Assig
 }
 
 function typeCheckConditionalExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<ConditionalExpression>): TypeCheckReturn<TypedConditionalExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
   if (left.type.kind !== "OptionalType")
     reportUserError(`Cannot use ${e.op} on a non optional type\nAt ${locPath(e.loc)}`);
   switch (e.op) {
@@ -294,27 +322,27 @@ function typeCheckConditionalExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<
 }
 
 function typeCheckOrExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<OrExpression>): TypeCheckReturn<TypedOrExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [op] = typeCheck({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [op] = typeCheckExpression({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
   const type1 = lookupApplication(op.type, left.type, e.loc, ctx, scope, tctx);
   const type = lookupApplication(type1, right.type, e.loc, ctx, scope, tctx);
   return [{ kind: "TypedOrExpression", left, right, op: e.op, type }, ctx, scope];
 }
 
 function typeCheckAndExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<AndExpression>): TypeCheckReturn<TypedAndExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [op] = typeCheck({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [op] = typeCheckExpression({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
   const type1 = lookupApplication(op.type, left.type, e.loc, ctx, scope, tctx);
   const type = lookupApplication(type1, right.type, e.loc, ctx, scope, tctx);
   return [{ kind: "TypedAndExpression", left, right, op: e.op, type }, ctx, scope];
 }
 
 function typeCheckCmpExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<CmpExpression>): TypeCheckReturn<TypedCmpExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [op] = typeCheck({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [op] = typeCheckExpression({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
   const type1 = lookupApplication(op.type, left.type, e.loc, ctx, scope, tctx);
   const type = lookupApplication(type1, right.type, e.loc, ctx, scope, tctx);
 
@@ -325,26 +353,26 @@ function typeCheckCmpExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<CmpExpre
 }
 
 function typeCheckAddExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<AddExpression>): TypeCheckReturn<TypedAddExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [op] = typeCheck({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [op] = typeCheckExpression({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
   const type1 = lookupApplication(op.type, left.type, e.loc, ctx, scope, tctx);
   const type = lookupApplication(type1, right.type, e.loc, ctx, scope, tctx);
   return [{ kind: "TypedAddExpression", left, right, op: e.op, type }, ctx, scope];
 }
 
 function typeCheckMulExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<MulExpression>): TypeCheckReturn<TypedMulExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [op] = typeCheck({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [op] = typeCheckExpression({ kind: "IdentifierExpression", name: e.op, loc: genLoc }, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
   const type1 = lookupApplication(op.type, left.type, e.loc, ctx, scope, tctx);
   const type = lookupApplication(type1, right.type, e.loc, ctx, scope, tctx);
   return [{ kind: "TypedMulExpression", left, right, op: e.op, type }, ctx, scope];
 }
 
 function typeCheckUnionExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<UnionExpression>): TypeCheckReturn<TypedUnionExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
 
   if (left.type.kind !== "TableType")
     reportInternalError(``);
@@ -379,8 +407,8 @@ function typeCheckUnionExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<UnionE
 }
 
 function typeCheckJoinExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<JoinExpression>): TypeCheckReturn<TypedJoinExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [right] = typeCheck(e.right, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctx, scope, tctx);
 
   if (left.type.kind !== "TableType")
     reportInternalError(``);
@@ -400,7 +428,7 @@ function typeCheckJoinExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<JoinExp
     r: right.type,
   };
 
-  const [on_] = typeCheck(e.on, onCtx, scope, tctx);
+  const [on_] = typeCheckExpression(e.on, onCtx, scope, tctx);
 
   const onColumns = gather(on_, ofKind("TypedIdentifierExpression"));
 
@@ -418,16 +446,16 @@ function assertValidAggExpression(e: TypedExpression, loc: Location): asserts e 
 }
 
 function typeCheckGroupByExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<GroupByExpression>): TypeCheckReturn<TypedGroupByExpression> {
-  const [value] = typeCheck(e.value, ctx, scope, tctx);
+  const [value] = typeCheckExpression(e.value, ctx, scope, tctx);
 
   if (value.type.kind !== "TableType")
     reportInternalError(``);
 
-  const [by] = typeCheck(e.by, ctxForTableType(value.type), scope, tctx);
+  const [by] = typeCheckExpression(e.by, ctxForTableType(value.type), scope, tctx);
 
   assertIsOfColumnType(by, e.by.loc);
 
-  const [agg] = typeCheck(e.agg, ctxForTableType(value.type), scope, tctx);
+  const [agg] = typeCheckExpression(e.agg, ctxForTableType(value.type), scope, tctx);
 
   assertValidAggExpression(agg, e.loc);
 
@@ -499,12 +527,12 @@ function createWithTableType(base: TableType, obj: TypedObjectExpression): Table
 }
 
 function typeCheckWithExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<WithExpression>): TypeCheckReturn<TypedWithExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
 
   if (left.type.kind !== "TableType")
     reportInternalError(``);
 
-  const [right] = typeCheck(e.right, ctxForTableType(left.type), scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctxForTableType(left.type), scope, tctx);
 
   if (right.kind !== "TypedObjectExpression")
     reportInternalError(``);
@@ -515,12 +543,12 @@ function typeCheckWithExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<WithExp
 }
 
 function typeCheckWhereExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<WhereExpression>): TypeCheckReturn<TypedWhereExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
 
   if (left.type.kind !== "TableType")
     reportInternalError(``);
 
-  const [right] = typeCheck(e.right, ctxForTableType(left.type), scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctxForTableType(left.type), scope, tctx);
 
   const type = left.type;
 
@@ -528,12 +556,12 @@ function typeCheckWhereExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<WhereE
 }
 
 function typeCheckDropExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<DropExpression>): TypeCheckReturn<TypedDropExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
 
   if (left.type.kind !== "TableType")
     reportInternalError(``);
 
-  const [right] = typeCheck(e.right, ctxForTableType(left.type), scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctxForTableType(left.type), scope, tctx);
 
   assertIsOfColumnType(right, e.right.loc);
 
@@ -547,12 +575,12 @@ function typeCheckDropExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<DropExp
 }
 
 function typeCheckSelectExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<SelectExpression>): TypeCheckReturn<TypedSelectExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
 
   if (left.type.kind !== "TableType")
     reportInternalError(``);
 
-  const [right] = typeCheck(e.right, ctxForTableType(left.type), scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctxForTableType(left.type), scope, tctx);
 
   assertIsOfColumnType(right, e.right.loc);
 
@@ -566,28 +594,28 @@ function typeCheckSelectExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Selec
 }
 
 function typeCheckDotExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<DotExpression>): TypeCheckReturn<TypedDotExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
   const resolvedType = resolveType(left.type, tctx);
   if (resolvedType.kind !== 'ObjectType')
     reportUserError(`Cannot . a non object type expression: ${left.type.kind}\nAt ${locPath(e.loc)}`);
-  const [right] = typeCheck(e.right, ctxForObjectType(resolvedType), scope, tctx);
+  const [right] = typeCheckExpression(e.right, ctxForObjectType(resolvedType), scope, tctx);
   const type = right.type;
   return [{ kind: "TypedDotExpression", left, right, type }, ctx, scope];
 }
 
 function typeCheckApplicationExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<ApplicationExpression>): TypeCheckReturn<TypedApplicationExpression> {
   if (e.args.length > 1) {
-    return [typeCheck(e.args.reduce((p, c) => ({ kind: "ApplicationExpression", left: p, args: [c], loc: genLoc }), e.left), ctx, scope, tctx)[0] as TypedApplicationExpression, ctx, scope];
+    return [typeCheckExpression(e.args.reduce((p, c) => ({ kind: "ApplicationExpression", left: p, args: [c], loc: genLoc }), e.left), ctx, scope, tctx)[0] as TypedApplicationExpression, ctx, scope];
   }
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [right] = typeCheck(e.args[0] ?? { kind: "BlockExpression", expressions: [], loc: genLoc }, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [right] = typeCheckExpression(e.args[0] ?? { kind: "BlockExpression", expressions: [], loc: genLoc }, ctx, scope, tctx);
   const type = lookupApplication(left.type, right.type, e.loc, ctx, scope, tctx);
   return [{ kind: "TypedApplicationExpression", left, right, type }, ctx, scope];
 }
 
 function typeCheckBlockExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<BlockExpression>): TypeCheckReturn<TypedBlockExpression> {
   const [expressions] = e.expressions.reduce<[TypedExpression[], Context, Scope]>((p, c) => {
-    const n = typeCheck(c, p[1], p[2], tctx);
+    const n = typeCheckExpression(c, p[1], p[2], tctx);
     return [[...p[0], n[0]], n[1], n[2]];
   }, [[], ctx, scope]);
 
@@ -603,7 +631,7 @@ function typeCheckObjectExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Objec
       case "AssignExpression":
         if (c.left.kind !== "IdentifierExpression")
           reportInternalError(``);
-        const x = typeCheck(c.right, p[1], p[2], tctx);
+        const x = typeCheckExpression(c.right, p[1], p[2], tctx);
         propertiesT.push({ name: c.left.name, type: x[0].type });
         return [[...p[0], { kind: "TypedAssignExpression", left: { kind: "TypedIdentifierExpression", name: c.left.name, type: x[0].type }, op: "=", right: x[0], type: x[0].type }], { ...x[1], [c.left.name]: x[0].type }, { ...x[2], [c.left.name]: x[0] }];
       case "DeclareExpression":
@@ -625,7 +653,7 @@ function typeCheckObjectExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Objec
 }
 
 function typeCheckArrayExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<ArrayExpression>): TypeCheckReturn<TypedArrayExpression> {
-  const values = e.values.map(x => typeCheck(x, ctx, scope, tctx)[0]);
+  const values = e.values.map(x => typeCheckExpression(x, ctx, scope, tctx)[0]);
 
   const type: Type = values.length === 0 ?
     { kind: "TupleType", types: [] } :
@@ -637,7 +665,7 @@ function typeCheckArrayExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<ArrayE
 }
 
 function typeCheckSpreadExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<SpreadExpression>): TypeCheckReturn<TypedSpreadExpression> {
-  const [value] = typeCheck(e.value, ctx, scope, tctx);
+  const [value] = typeCheckExpression(e.value, ctx, scope, tctx);
 
   if (value.type.kind !== "ObjectType")
     reportUserError(`Cannot spread a non object type\nAt ${locPath(e.loc)}`);
@@ -646,8 +674,8 @@ function typeCheckSpreadExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<Sprea
 }
 
 function typeCheckIndexExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<IndexExpression>): TypeCheckReturn<TypedIndexExpression> {
-  const [left] = typeCheck(e.left, ctx, scope, tctx);
-  const [index] = typeCheck(e.index, ctx, scope, tctx);
+  const [left] = typeCheckExpression(e.left, ctx, scope, tctx);
+  const [index] = typeCheckExpression(e.index, ctx, scope, tctx);
 
   if (index.type.kind !== "IntegerType")
     reportUserError(`Cannot index with a non integer type: got ${typeName(index.type)}\nAt ${locPath(e.loc)}`);
@@ -664,50 +692,50 @@ function typeCheckIndexExpression(...[e, ctx, scope, tctx]: TypeCheckArgs<IndexE
   }
 }
 
-export function shallowTypeCheck(e: Expression): TypedExpression {
+export function shallowTypeCheckExpression(e: Expression): TypedExpression {
   switch (e.kind) {
     case "LetExpression":
-      return { kind: "TypedLetExpression", type: { kind: "AnyType" }, value: shallowTypeCheck(e.value) as any };
+      return { kind: "TypedLetExpression", type: { kind: "AnyType" }, value: shallowTypeCheckExpression(e.value) as any };
     case "TableExpression":
-      return { kind: "TypedTableExpression", type: { kind: "AnyType" } as any, value: shallowTypeCheck(e.value) as any, hooks: e.hooks.map(shallowTypeCheck) };
+      return { kind: "TypedTableExpression", type: { kind: "AnyType" } as any, value: shallowTypeCheckExpression(e.value) as any, hooks: e.hooks.map(shallowTypeCheckExpression) };
     case "FunctionExpression":
-      return { kind: "TypedFunctionExpression", type: { kind: "AnyType" } as any, name: e.name, args: e.args.map(shallowTypeCheck), value: shallowTypeCheck(e.value) as any };
+      return { kind: "TypedFunctionExpression", type: { kind: "AnyType" } as any, name: e.name, args: e.args.map(shallowTypeCheckExpression), value: shallowTypeCheckExpression(e.value) as any };
     case "EvalExpression":
-      return { kind: "TypedEvalExpression", type: { kind: "AnyType" } as any, node: shallowTypeCheck(e.node) };
+      return { kind: "TypedEvalExpression", type: { kind: "AnyType" } as any, node: shallowTypeCheckExpression(e.node) };
     case "DeclareExpression":
-      return { kind: "TypedDeclareExpression", type: e.type, value: shallowTypeCheck(e.value) as any };
+      return { kind: "TypedDeclareExpression", type: e.type, value: shallowTypeCheckExpression(e.value) as any };
     case "AssignExpression":
-      return { kind: "TypedAssignExpression", type: { kind: "AnyType" }, op: "=", left: shallowTypeCheck(e.left) as any, right: shallowTypeCheck(e.right) };
+      return { kind: "TypedAssignExpression", type: { kind: "AnyType" }, op: "=", left: shallowTypeCheckExpression(e.left) as any, right: shallowTypeCheckExpression(e.right) };
     case "ConditionalExpression":
-      return { kind: "TypedConditionalExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedConditionalExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "OrExpression":
-      return { kind: "TypedOrExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedOrExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "AndExpression":
-      return { kind: "TypedAndExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedAndExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "CmpExpression":
-      return { kind: "TypedCmpExpression", type: { kind: "AnyType" } as any, op: e.op, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedCmpExpression", type: { kind: "AnyType" } as any, op: e.op, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "AddExpression":
-      return { kind: "TypedAddExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedAddExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "MulExpression":
-      return { kind: "TypedMulExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedMulExpression", type: { kind: "AnyType" }, op: e.op, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "UnionExpression":
-      return { kind: "TypedUnionExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedUnionExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "JoinExpression":
-      return { kind: "TypedJoinExpression", type: { kind: "AnyType" } as any, method: e.method, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right), on: e.on ? shallowTypeCheck(e.on) : { kind: "TypedNullExpression", type: { kind: "NullType" } } };
+      return { kind: "TypedJoinExpression", type: { kind: "AnyType" } as any, method: e.method, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right), on: e.on ? shallowTypeCheckExpression(e.on) : { kind: "TypedNullExpression", type: { kind: "NullType" } } };
     case "GroupByExpression":
-      return { kind: "TypedGroupByExpression", type: { kind: "AnyType" } as any, value: shallowTypeCheck(e.value), by: shallowTypeCheck(e.by) as any, agg: shallowTypeCheck(e.agg) as any };
+      return { kind: "TypedGroupByExpression", type: { kind: "AnyType" } as any, value: shallowTypeCheckExpression(e.value), by: shallowTypeCheckExpression(e.by) as any, agg: shallowTypeCheckExpression(e.agg) as any };
     case "WhereExpression":
-      return { kind: "TypedWhereExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right), };
+      return { kind: "TypedWhereExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right), };
     case "WithExpression":
-      return { kind: "TypedWithExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) as any, };
+      return { kind: "TypedWithExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) as any, };
     case "DropExpression":
-      return { kind: "TypedDropExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) as any, };
+      return { kind: "TypedDropExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) as any, };
     case "SelectExpression":
-      return { kind: "TypedSelectExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) as any, };
+      return { kind: "TypedSelectExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) as any, };
     case "DotExpression":
-      return { kind: "TypedDotExpression", type: { kind: "AnyType" }, left: shallowTypeCheck(e.left), right: shallowTypeCheck(e.right) };
+      return { kind: "TypedDotExpression", type: { kind: "AnyType" }, left: shallowTypeCheckExpression(e.left), right: shallowTypeCheckExpression(e.right) };
     case "ApplicationExpression":
-      return e.args.reduce((p, c) => ({ kind: "TypedApplicationExpression", left: p, right: shallowTypeCheck(c), type: { kind: "AnyType" }, }), shallowTypeCheck(e.left));
+      return e.args.reduce((p, c) => ({ kind: "TypedApplicationExpression", left: p, right: shallowTypeCheckExpression(c), type: { kind: "AnyType" }, }), shallowTypeCheckExpression(e.left));
     case "IdentifierExpression":
       return { kind: "TypedIdentifierExpression", type: { kind: "AnyType" }, name: e.name };
     case "PlaceholderExpression":
@@ -725,14 +753,14 @@ export function shallowTypeCheck(e: Expression): TypedExpression {
     case "NullExpression":
       return { kind: "TypedNullExpression", type: { kind: "AnyType" } as any, };
     case "BlockExpression":
-      return { kind: "TypedBlockExpression", type: { kind: "AnyType" }, expressions: e.expressions.map(shallowTypeCheck) };
+      return { kind: "TypedBlockExpression", type: { kind: "AnyType" }, expressions: e.expressions.map(shallowTypeCheckExpression) };
     case "ObjectExpression":
-      return { kind: "TypedObjectExpression", type: { kind: "AnyType" } as any, properties: e.properties.map(shallowTypeCheck) as any[], };
+      return { kind: "TypedObjectExpression", type: { kind: "AnyType" } as any, properties: e.properties.map(shallowTypeCheckExpression) as any[], };
     case "ArrayExpression":
-      return { kind: "TypedArrayExpression", type: { kind: "AnyType" } as any, values: e.values.map(shallowTypeCheck) };
+      return { kind: "TypedArrayExpression", type: { kind: "AnyType" } as any, values: e.values.map(shallowTypeCheckExpression) };
     case "SpreadExpression":
-      return { kind: "TypedSpreadExpression", type: { kind: "AnyType" } as any, value: shallowTypeCheck(e.value) };
+      return { kind: "TypedSpreadExpression", type: { kind: "AnyType" } as any, value: shallowTypeCheckExpression(e.value) };
     case "IndexExpression":
-      return { kind: "TypedIndexExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheck(e.left), index: shallowTypeCheck(e.index) };
+      return { kind: "TypedIndexExpression", type: { kind: "AnyType" } as any, left: shallowTypeCheckExpression(e.left), index: shallowTypeCheckExpression(e.index) };
   }
 }

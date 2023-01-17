@@ -1293,7 +1293,7 @@ export function generateCaseClass(name: string, props: { name: string, type: Typ
   return extra.concat(`case class ${name} (${properties.map(x => `\n\t${x},`).join('')}\n)\n\n`);
 }
 
-export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Promise<[string]> {
+export function toScala(tast: TypedTopLevelExpression[], scope: Scope): string {
   let scalaSourceCode = "";
 
   const templates: Record<string, Template> = {};
@@ -1435,7 +1435,7 @@ export async function toScala(tast: TypedTopLevelExpression[], scope: Scope): Pr
 
   scalaSourceCode += mainClass("Test", "Project", infos);
 
-  return [scalaSourceCode];
+  return scalaSourceCode;
 }
 
 export function mainClass(packageName: string, projectName: string, infos: TableInfos) {

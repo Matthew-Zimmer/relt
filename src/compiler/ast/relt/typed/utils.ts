@@ -1,7 +1,7 @@
 import { inspect } from "util";
 import { TypedCmpExpression, TypedExpression, TypedObjectExpressionProperty, TypedAddExpression, TypedMulExpression } from ".";
 import { reportInternalError, reportUserError } from "../../../errors";
-import { FunctionType } from "../type";
+import { FunctionType, Type } from "../type";
 import { format } from "./format";
 
 export type Visitor<T extends { kind: string }, R> = { [K in T['kind']]?: (e: T & { kind: K }) => R }
@@ -183,6 +183,10 @@ export function shallowEquals(l: TypedExpression, r: TypedExpression): boolean {
 
 export function ofKind<K extends TypedExpression['kind']>(kind: K) {
   return (e: TypedExpression): e is TypedExpression & { kind: K } => e.kind === kind;
+}
+
+export function ofType<K extends Type['kind']>(kind: K) {
+  return (e: TypedExpression): e is TypedExpression & { type: { kind: K } } => e.type.kind === kind;
 }
 
 export function deepEquals(l: TypedExpression, r: TypedExpression): boolean {
